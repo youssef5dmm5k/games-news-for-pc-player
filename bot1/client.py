@@ -22,7 +22,7 @@ class GameNewsBot(discord.Client):
     """
 
     def __init__(self, settings: Settings) -> None:
-        intents = discord.Intents.default()
+        intents = discord.Intents.all()
         super().__init__(intents=intents)
         self.settings = settings
         self._groq_api_key = settings.groq_api_key
@@ -31,10 +31,8 @@ class GameNewsBot(discord.Client):
     # ── lifecycle ──────────────────────────────────────────────
 
     async def on_ready(self) -> None:
-        logger.info(
-            "Bot 1 online — %s (ID: %s)",
-            self.user, self.user.id,
-        )
+        print(f"[Bot1] ONLINE — {self.user} (ID: {self.user.id})", flush=True)
+        logger.info("Bot 1 online — %s (ID: %s)", self.user, self.user.id)
         self.daily_deals_task.start()
 
     # ── background task ────────────────────────────────────────
@@ -47,6 +45,7 @@ class GameNewsBot(discord.Client):
             return
 
         for store_name, store_id in STORE_IDS.items():
+            print(f"[Bot1] Fetching {store_name} deals...", flush=True)
             deals = await fetch_deals(store_id)
             if not deals:
                 logger.info("No deals returned from %s", store_name)
@@ -64,6 +63,8 @@ class GameNewsBot(discord.Client):
                 color=0x00AEFF if store_name == "Steam" else 0x9147FF,
             )
             embed.set_footer(text="يتم التحديث يومياً")
+
+            print(f"[Bot1] Posting {len(deals)} {store_name} deals...", flush=True)
             await channel.send(embed=embed)
             await asyncio.sleep(1)
 

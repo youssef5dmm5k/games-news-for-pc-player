@@ -14,7 +14,7 @@ class PriceCompareBot(commands.Bot):
     """Bot 2 — Interactive gift-card / game price comparator via /compare."""
 
     def __init__(self, settings: Settings) -> None:
-        intents = discord.Intents.default()
+        intents = discord.Intents.all()
         super().__init__(command_prefix=None, intents=intents)
         self.settings = settings
         self._channel_id = settings.channel_id_2
@@ -22,17 +22,21 @@ class PriceCompareBot(commands.Bot):
     # ── lifecycle ──────────────────────────────────────────────
 
     async def on_ready(self) -> None:
+        print(f"[Bot2] ONLINE — {self.user} (ID: {self.user.id})", flush=True)
         logger.info("Bot 2 online — %s (ID: %s)", self.user, self.user.id)
         try:
             synced = await self.tree.sync()
+            print(f"[Bot2] Synced {len(synced)} slash command(s)", flush=True)
             logger.info("Synced %d slash command(s)", len(synced))
         except Exception as exc:
+            print(f"[Bot2] Failed to sync command tree: {exc}", flush=True)
             logger.warning("Failed to sync command tree: %s", exc)
 
     # ── /compare ───────────────────────────────────────────────
 
     async def setup_hook(self) -> None:
         self.tree.add_command(compare_command, bot=self)
+
 
 # ── slash command implementation ────────────────────────────────
 
@@ -88,9 +92,7 @@ async def compare_command(
             text=f"Best deal: {cheapest['name']} — ${cheapest['price']:.2f}"
         )
 
-    # Build the button view
     view = BuyBestDealView(top)
-
     await interaction.response.send_message(embed=embed, view=view)
 
     if len(results) > 1:
