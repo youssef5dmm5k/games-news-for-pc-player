@@ -1,3 +1,3 @@
-from bot2.client import PriceCompareBot
+from bot2.client import SteamPriceBot
 
-__all__ = ["PriceCompareBot"]
+__all__ = ["SteamPriceBot"]

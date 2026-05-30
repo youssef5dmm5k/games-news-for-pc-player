@@ -1,5 +1,4 @@
 import os
-import sys
 from dataclasses import dataclass
 
 
@@ -13,38 +12,16 @@ class Settings:
 
 
 def validate_settings() -> Settings:
-    warnings: list[str] = []
-
-    bot1_token = os.getenv("DISCORD_TOKEN", "")
-    if not bot1_token:
-        warnings.append("DISCORD_TOKEN is missing — Bot 1 (News Tracker) will not start")
-
-    bot2_token = os.getenv("BOT_TOKEN_2", "")
-    groq_api_key = os.getenv("GROQ_API_KEY", "")
-    if not groq_api_key:
-        warnings.append("GROQ_API_KEY is missing — Bot 1 Arabic descriptions will fail")
-
-    try:
-        channel_id_1 = int(os.getenv("CHANNEL_ID_1", "0"))
-    except ValueError:
-        channel_id_1 = 0
-        warnings.append("CHANNEL_ID_1 is not a valid integer")
-
-    try:
-        channel_id_2 = int(os.getenv("CHANNEL_ID_2", "0"))
-    except ValueError:
-        channel_id_2 = 0
-        warnings.append("CHANNEL_ID_2 is not a valid integer")
-
-    if warnings:
-        print("Warnings during configuration:", file=sys.stderr)
-        for w in warnings:
-            print(f"  ⚠ {w}", file=sys.stderr)
+    def get_int(key: str) -> int:
+        try:
+            return int(os.getenv(key, "0"))
+        except ValueError:
+            return 0
 
     return Settings(
-        bot1_token=bot1_token,
-        bot2_token=bot2_token,
-        channel_id_1=channel_id_1,
-        channel_id_2=channel_id_2,
-        groq_api_key=groq_api_key,
+        bot1_token=os.getenv("DISCORD_TOKEN", ""),
+        bot2_token=os.getenv("BOT_TOKEN_2", ""),
+        channel_id_1=get_int("CHANNEL_ID_1"),
+        channel_id_2=get_int("CHANNEL_ID_2"),
+        groq_api_key=os.getenv("GROQ_API_KEY", ""),
     )

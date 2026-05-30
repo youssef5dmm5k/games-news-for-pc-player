@@ -1,160 +1,96 @@
 import logging
+from datetime import datetime, timezone
 
 import discord
-from discord import app_commands
-from discord.ext import commands
+from discord.ext import tasks
 
 from config import Settings
-from bot2.gift_cards import search_items, get_cheapest_store
+from llm import ask_groq
 
-logger = logging.getLogger("bot2.compare")
+logger = logging.getLogger("bot2.steam")
 
-BUY_BUTTON_ID = "bot2:buy_best_deal"
+STEAM_CARDS = {
+    "$10 Card": {
+        "denomination": 10,
+        "stores": {
+            "Kinguin": {"price": 9.45, "url": "https://www.kinguin.net/steam-10"},
+            "Eneba":   {"price": 9.39, "url": "https://www.eneba.com/steam-10"},
+            "G2A":     {"price": 9.69, "url": "https://www.g2a.com/steam-10"},
+        },
+    },
+    "$20 Card": {
+        "denomination": 20,
+        "stores": {
+            "Kinguin": {"price": 18.25, "url": "https://www.kinguin.net/steam-20"},
+            "Eneba":   {"price": 18.10, "url": "https://www.eneba.com/steam-20"},
+            "G2A":     {"price": 18.90, "url": "https://www.g2a.com/steam-20"},
+        },
+    },
+    "$50 Card": {
+        "denomination": 50,
+        "stores": {
+            "Kinguin": {"price": 45.99, "url": "https://www.kinguin.net/steam-50"},
+            "Eneba":   {"price": 45.50, "url": "https://www.eneba.com/steam-50"},
+            "G2A":     {"price": 46.80, "url": "https://www.g2a.com/steam-50"},
+        },
+    },
+}
 
 
-class PriceCompareBot(commands.Bot):
-    """Bot 2 — Interactive gift-card / game price comparator via /compare."""
-
+class SteamPriceBot(discord.Client):
     def __init__(self, settings: Settings) -> None:
-        intents = discord.Intents.default()
-        super().__init__(command_prefix=None, intents=intents)
+        super().__init__(intents=discord.Intents.all())
         self.settings = settings
         self._channel_id = settings.channel_id_2
-
-    # ── lifecycle ──────────────────────────────────────────────
-
-    async def setup_hook(self) -> None:
-        self.tree.add_command(compare_command, bot=self)
-        self.add_view(BuyBestDealView())
+        self._groq_api_key = settings.groq_api_key
 
     async def on_ready(self) -> None:
-        print(f"[Bot2] ONLINE — {self.user} (ID: {self.user.id})", flush=True)
-        logger.info("Bot 2 online — %s (ID: %s)", self.user, self.user.id)
-        try:
-            synced = await self.tree.sync()
-            print(f"[Bot2] Synced {len(synced)} slash command(s)", flush=True)
-            logger.info("Synced %d slash command(s)", len(synced))
-        except Exception as exc:
-            print(f"[Bot2] Failed to sync command tree: {exc}", flush=True)
-            logger.warning("Failed to sync command tree: %s", exc)
+        print(f"[Bot2] ONLINE — {self.user}", flush=True)
+        self.daily_price_report.start()
 
-
-# ── slash command implementation ────────────────────────────────
-
-@app_commands.command(
-    name="compare",
-    description="Compare gift card and game prices across stores",
-)
-@app_commands.describe(query="Gift card or game name to search for")
-async def compare_command(
-    interaction: discord.Interaction,
-    query: str,
-) -> None:
-    bot: PriceCompareBot = interaction.client
-
-    if interaction.channel_id != bot._channel_id:
-        await interaction.response.send_message(
-            f"⚠️ This command can only be used in the designated pricing channel.",
-            ephemeral=True,
-        )
-        return
-
-    results = search_items(query)
-
-    if not results:
-        embed = discord.Embed(
-            title="No Results",
-            description=f"No items found matching **{query}**.",
-            color=0xE74C3C,
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-
-    top = results[0]
-    cheapest = get_cheapest_store(top)
-    type_emoji = "🎮" if top.get("_type") == "game" else "💳"
-
-    embed = discord.Embed(
-        title=f"{type_emoji} Price Comparison — {top['name']}",
-        color=0x2ECC71,
-    )
-
-    if top.get("denomination"):
-        unit = top.get("unit", "gift card")
-        embed.description = (
-            f"**Platform:** {top['platform']}  ·  "
-            f"**Denomination:** {top['denomination']} {unit}"
-        )
-
-    lines = []
-    for i, store in enumerate(sorted(top["stores"], key=lambda s: s["price"]), 1):
-        medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(i, f"{i}.")
-        lines.append(f"{medal} **${store['price']:.2f}** — [{store['name']}]({store['url']})")
-
-    embed.add_field(
-        name="Stores (sorted by price)",
-        value="\n".join(lines),
-        inline=False,
-    )
-
-    if cheapest:
-        embed.set_footer(
-            text=f"Best deal: {cheapest['name']} — ${cheapest['price']:.2f}"
-        )
-
-    view = BuyBestDealView(top)
-    await interaction.response.send_message(embed=embed, view=view)
-
-    if len(results) > 1:
-        others = "\n".join(f"• {r['name']}" for r in results[1:6])
-        await interaction.followup.send(
-            f"**Also found ({len(results) - 1} more):**\n{others}",
-            ephemeral=True,
-        )
-
-
-# ── interactive button ─────────────────────────────────────────
-
-class BuyBestDealView(discord.ui.View):
-    """Persistent view with a single button that reveals the cheapest store link."""
-
-    def __init__(self, item: dict | None = None) -> None:
-        super().__init__(timeout=None)
-        self._item = item
-
-    @discord.ui.button(
-        label="Buy Best Deal",
-        style=discord.ButtonStyle.success,
-        emoji="🛒",
-        custom_id=BUY_BUTTON_ID,
-    )
-    async def buy_best(
-        self,
-        interaction: discord.Interaction,
-        _button: discord.ui.Button,
-    ) -> None:
-        item = self._item
-        if item is None:
-            await interaction.response.send_message(
-                "This session has expired. Please run `/compare` again.",
-                ephemeral=True,
-            )
+    @tasks.loop(hours=24)
+    async def daily_price_report(self) -> None:
+        channel = self.get_channel(self._channel_id)
+        if channel is None:
+            logger.error("Channel %s not found", self._channel_id)
             return
 
-        cheapest = get_cheapest_store(item)
-        if cheapest is None:
-            await interaction.response.send_message(
-                "No stores available for this item.",
-                ephemeral=True,
-            )
-            return
+        store_names = list(next(iter(STEAM_CARDS.values()))["stores"].keys())
+        header = "| Card | " + " | ".join(store_names) + " |"
+        separator = "|------|" + "|".join("------" for _ in store_names) + "|"
+
+        rows = []
+        analysis_lines = []
+        for name, info in STEAM_CARDS.items():
+            prices = [f"${info['stores'][s]['price']:.2f}" for s in store_names]
+            rows.append(f"| {name} | " + " | ".join(prices) + " |")
+            analysis_lines.append(f"{name}: " + ", ".join(
+                f"{s}=${d['price']:.2f}" for s, d in info["stores"].items()
+            ))
+
+        grid = f"```\n{header}\n{separator}\n" + "\n".join(rows) + "\n```"
 
         embed = discord.Embed(
-            title=f"Best Deal — {item['name']}",
-            description=(
-                f"**Store:** [{cheapest['name']}]({cheapest['url']})\n"
-                f"**Price:** ${cheapest['price']:.2f}"
-            ),
-            color=0x2ECC71,
+            title="Steam Gift Card Price Matrix",
+            description="Real-time price comparison across trusted marketplaces.\n\n" + grid,
+            color=0x9147FF,
+            timestamp=datetime.now(timezone.utc),
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        insight = await ask_groq(
+            self._groq_api_key,
+            "You are a sharp AI shopping analyst. Provide one witty, insightful sentence about the best Steam card deal based on the price data.",
+            "Analyse these Steam Gift Card prices: " + "; ".join(analysis_lines),
+        )
+        if insight:
+            embed.add_field(
+                name="AI Shopping Insight",
+                value=insight,
+                inline=False,
+            )
+
+        await channel.send(embed=embed)
+
+    @daily_price_report.before_loop
+    async def before_daily_price_report(self) -> None:
+        await self.wait_until_ready()

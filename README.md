@@ -1,48 +1,55 @@
-# OmniBot Hub — Advanced Multi-Instance Discord Architecture
+# NexusAutomation Hub — Multi-Instance Autonomous AI Bots
 
-A production-grade Python framework that runs **two independent Discord bots** inside a single process using `asyncio.gather`. Designed for resource-efficient deployment where multiple bot instances share memory, configuration, and a single event loop without sacrificing isolation.
+A production-grade Python framework that runs **two fully autonomous Discord bots** inside a single process using `asyncio.gather`. Zero interactive commands, zero databases — every operation is driven by background task loops with AI-generated content via Groq LLM.
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────┐
-│                 main.py                       │
-│         asyncio.gather (dual loop)            │
-├──────────────────────┬───────────────────────┤
-│   Bot 1              │   Bot 2               │
-│   Game News Tracker  │   Price Comparator    │
-│                      │                       │
-│  ┌────────────────┐  │  ┌─────────────────┐  │
-│  │ CheapShark API │  │  │ Local JSON DB   │  │
-│  │ Groq LLM       │  │  │ Store price      │  │
-│  │ Arabic output  │  │  │ comparison       │  │
-│  └────────────────┘  │  │ UI buttons       │  │
-│                      │  └─────────────────┘  │
-└──────────────────────┴───────────────────────┘
+┌──────────────────────────────────────────────────┐
+│                    main.py                        │
+│            asyncio.gather (dual loop)             │
+├──────────────────────┬───────────────────────────┤
+│   Bot 1              │   Bot 2                   │
+│   Gaming News        │   Steam Price Monitor     │
+│                      │                           │
+│  ┌────────────────┐  │  ┌─────────────────────┐  │
+│  │ Hardcoded news │  │  │ Hardcoded price     │  │
+│  │ templates      │  │  │ matrix (3 cards ×   │  │
+│  │ Groq AI TL;DR  │  │  │ 3 stores)           │  │
+│  │ 24h loop       │  │  │ Groq AI insight     │  │
+│  └────────────────┘  │  │ 24h loop            │  │
+│                      │  └─────────────────────┘  │
+└──────────────────────┴───────────────────────────┘
 ```
 
-Both bots authenticate independently with separate Discord tokens, maintain separate Gateway connections, and operate on separate channels — yet they share the same Python process, configuration source, and dependencies.
+Both bots authenticate independently with separate Discord tokens, maintain separate Gateway connections, and operate on separate channels — yet they share the same Python process, configuration source, and event loop.
 
 ---
 
-## Advanced Features
+## Key Features
 
-### Asynchronous Multi-Instance Execution
-Both bots are launched via `asyncio.gather`, allowing them to connect to Discord concurrently. Each bot retains its own rate-limit bucket, shard ID, and command tree. A crash in one instance does not affect the other.
+### Fully Autonomous (No Interaction Required)
+- **No slash commands** — bots post automatically on a 24-hour schedule
+- **No databases** — all data is hardcoded, zero external dependencies
+- **No user input** — set-and-forget deployment on Railway
 
-### Bot 1 — Game News Tracker
-- **Automated deal aggregation** — Fetches daily discounts from Steam and Epic Games Store via CheapShark.
-- **LLM-enriched descriptions** — Uses Groq's `llama-3.1-8b-instant` to generate short Arabic catchphrases for each game.
-- **24-hour background loop** — Posts a formatted summary (Arabic dates, "مجاناً" for free games) to the configured channel every 24 hours.
-- **Resilient error handling** — Exponential backoff on API rate limits; graceful fallback descriptions.
+### Bot 1 — Autonomous Gaming News Tracker
+- Posts a curated **5-story gaming news roundup** every 24 hours
+- Each article includes a title, summary, and direct link
+- Uses **Groq LLM** to generate a unique, witty AI TL;DR footer
+- Beautiful embed with timestamp and branded colour
 
-### Bot 2 — Gift Card & Game Price Comparator
-- **`/compare` slash command** — Searches a local JSON database of gift cards (Steam, PSN, Xbox) and game titles.
-- **Price-sorted embeds** — Results are ranked by price with medal emojis (🥇🥈🥉) and direct store links.
-- **Interactive UI** — "Buy Best Deal" button sends an ephemeral message with the cheapest store link.
-- **Zero external API dependency** — All price data is bundled, no third-party price API required.
+### Bot 2 — Autonomous Steam Price Monitor
+- Posts a **price matrix embed** every 24 hours comparing Steam Gift Cards ($10, $20, $50) across Kinguin, Eneba, and G2A
+- Professional monospace grid layout for at-a-glance comparison
+- Uses **Groq LLM** to inject a dynamic AI Shopping Insight highlighting the best deal
+
+### AI Integration (Groq)
+- Shared `llm.py` module wraps the official `AsyncGroq` SDK
+- Both bots call the same helper with different system prompts
+- Graceful fallback — if the API call fails, the bot posts without AI content
 
 ---
 
@@ -52,13 +59,13 @@ Both bots are launched via `asyncio.gather`, allowing them to connect to Discord
 - Python 3.10 or newer
 - Two Discord bot tokens ([Discord Developer Portal](https://discord.com/developers/applications))
 - A Groq API key ([Groq Console](https://console.groq.com/keys))
-- One Discord server with two text channels (or one shared channel)
+- Two Discord text channels (one per bot)
 
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/omnibot-hub.git
-cd omnibot-hub
+git clone https://github.com/your-username/nexus-automation-hub.git
+cd nexus-automation-hub
 
 python -m venv venv
 venv\Scripts\activate       # Windows
@@ -76,21 +83,16 @@ cp .env.example .env
 Edit `.env` with your credentials:
 
 ```ini
-BOT_TOKEN_1=your_first_bot_token
+DISCORD_TOKEN=your_discord_bot_token_here
 CHANNEL_ID_1=channel_snowflake_for_bot_1
-BOT_TOKEN_2=your_second_bot_token
+BOT_TOKEN_2=your_second_bot_token_here
 CHANNEL_ID_2=channel_snowflake_for_bot_2
-GROQ_API_KEY=your_groq_api_key
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
 ### Invite the Bots
 
-Generate OAuth2 invite URLs for both applications:
-
-| Scope | Permission |
-|---|---|
-| `bot` | Send Messages, Embed Links, View Channels, Use Slash Commands |
-| `applications.commands` | (required for `/compare`) |
+Generate OAuth2 invite URLs for both applications with the `bot` scope and **Send Messages**, **Embed Links**, and **View Channels** permissions.
 
 ---
 
@@ -100,68 +102,33 @@ Generate OAuth2 invite URLs for both applications:
 python main.py
 ```
 
-Both bots connect simultaneously. Bot 1 immediately fetches and posts deals; Bot 2 registers the `/compare` command on the global command tree.
+Both bots connect simultaneously. Each 24-hour loop fires **immediately on `on_ready`**, then every 24 hours thereafter.
 
 ---
 
-## Deployment
+## Deployment (Railway)
 
-### Docker
+1. Push the repository to GitHub
+2. Create a new Railway project from the GitHub repo
+3. Set the **five environment variables** in Railway Dashboard
+4. Railway detects `requirements.txt` and installs dependencies automatically
+5. Start command: `python main.py`
 
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-CMD ["python", "main.py"]
-```
-
-```bash
-docker build -t omnibot-hub .
-docker run -d --env-file .env --name omnibot omnibot-hub
-```
-
-### systemd
-
-```ini
-[Unit]
-Description=OmniBot Hub
-After=network.target
-
-[Service]
-Type=simple
-User=your-user
-WorkingDirectory=/path/to/omnibot-hub
-EnvironmentFile=/path/to/omnibot-hub/.env
-ExecStart=/path/to/venv/bin/python main.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
+No `Dockerfile` required — Railway's Python builder handles everything.
 
 ---
 
 ## Project Structure
 
 ```
-omnibot-hub/
+nexus-automation-hub/
 ├── main.py                  # Entry point — asyncio.gather dual-boot
 ├── config.py                # Shared Settings dataclass (env vars)
+├── llm.py                   # Shared AsyncGroq wrapper
 ├── bot1/
-│   ├── __init__.py
-│   ├── client.py            # GameNewsBot — 24h task loop
-│   ├── deals.py             # CheapShark async fetcher
-│   ├── groq_client.py       # Groq LLM integration
-│   └── formatters.py        # Arabic date & price formatting
+│   └── client.py            # GameNewsBot — 24h background loop
 ├── bot2/
-│   ├── __init__.py
-│   ├── client.py            # PriceCompareBot — /compare command
-│   ├── gift_cards.py        # JSON database query layer
-│   └── data/
-│       └── gift_cards.json  # 19 bundled items (gift cards + games)
+│   └── client.py            # SteamPriceBot — 24h background loop
 ├── .env / .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -170,9 +137,9 @@ omnibot-hub/
 
 ---
 
-## Resource Efficiency
+## Performance
 
-Running two bot instances in a single process reduces memory overhead by sharing the Python interpreter, the aiohttp event loop, and cached modules. Typical RAM usage: ~90–120 MB for both bots (versus ~60–80 MB each when run separately).
+Two bot instances in a single process share the Python interpreter, the event loop, and cached modules. Typical RAM usage on Railway (512 MB plan): ~80–110 MB for both bots.
 
 ---
 

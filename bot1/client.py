@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -6,94 +5,81 @@ import discord
 from discord.ext import tasks
 
 from config import Settings
-from bot1.deals import STORE_IDS, fetch_deals
-from bot1.formatters import format_arabic_date, format_price
-from bot1.groq_client import generate_description
+from llm import ask_groq
 
 logger = logging.getLogger("bot1.news")
 
+NEWS_TEMPLATES = [
+    {
+        "title": "Elden Ring Shadow of the Erdtree",
+        "description": "New gameplay footage reveals expanded map with 10+ legacy dungeons.",
+        "url": "https://www.gamespot.com/elden-ring-shadow-erdtree",
+    },
+    {
+        "title": "Steam Summer Sale 2025",
+        "description": "Up to 90% off on thousands of titles starting next week.",
+        "url": "https://store.steampowered.com",
+    },
+    {
+        "title": "Cyberpunk 2077 Phantom Liberty",
+        "description": "CD Projekt reports 5 million copies sold since the 2.0 overhaul.",
+        "url": "https://www.cyberpunk.net",
+    },
+    {
+        "title": "NVIDIA GeForce RTX 5090",
+        "description": "Next-gen GPU rumored to ship with 32 GB GDDR7 and 4 nm process.",
+        "url": "https://www.nvidia.com",
+    },
+    {
+        "title": "Valve Steam Deck 2",
+        "description": "Leaked specs suggest AMD Zen 5 APU with ray tracing support.",
+        "url": "https://www.steamdeck.com",
+    },
+]
+
 
 class GameNewsBot(discord.Client):
-    """Bot 1 — Automated game deals & news tracker.
-
-    Runs a 24-hour background loop that fetches discounted games from
-    CheapShark (Steam + Epic), enriches them with Groq-generated Arabic
-    descriptions, and posts the compiled list to a configured channel.
-    """
-
     def __init__(self, settings: Settings) -> None:
-        intents = discord.Intents.all()
-        super().__init__(intents=intents)
+        super().__init__(intents=discord.Intents.all())
         self.settings = settings
-        self._groq_api_key = settings.groq_api_key
         self._channel_id = settings.channel_id_1
-
-    # ── lifecycle ──────────────────────────────────────────────
+        self._groq_api_key = settings.groq_api_key
 
     async def on_ready(self) -> None:
-        print(f"[Bot1] ONLINE — {self.user} (ID: {self.user.id})", flush=True)
-        logger.info("Bot 1 online — %s (ID: %s)", self.user, self.user.id)
-        self.daily_deals_task.start()
-
-    # ── background task ────────────────────────────────────────
+        print(f"[Bot1] ONLINE — {self.user}", flush=True)
+        self.daily_news.start()
 
     @tasks.loop(hours=24)
-    async def daily_deals_task(self) -> None:
+    async def daily_news(self) -> None:
         channel = self.get_channel(self._channel_id)
         if channel is None:
-            logger.error("Channel %s not found — check CHANNEL_ID_1", self._channel_id)
+            logger.error("Channel %s not found", self._channel_id)
             return
 
-        for store_name, store_id in STORE_IDS.items():
-            print(f"[Bot1] Fetching {store_name} deals...", flush=True)
-            deals = await fetch_deals(store_id)
-            if not deals:
-                logger.info("No deals returned from %s", store_name)
-                continue
-
-            lines: list[str] = []
-            for deal in deals:
-                line = await self._build_deal_line(deal)
-                lines.append(line)
-                await asyncio.sleep(0.5)
-
-            embed = discord.Embed(
-                title=f"🎮 عروض {store_name} اليوم",
-                description="\n\n".join(lines),
-                color=0x00AEFF if store_name == "Steam" else 0x9147FF,
-            )
-            embed.set_footer(text="يتم التحديث يومياً")
-
-            print(f"[Bot1] Posting {len(deals)} {store_name} deals...", flush=True)
-            await channel.send(embed=embed)
-            await asyncio.sleep(1)
-
-    @daily_deals_task.before_loop
-    async def before_daily_deals(self) -> None:
-        await self.wait_until_ready()
-
-    # ── helpers ────────────────────────────────────────────────
-
-    async def _build_deal_line(self, deal: dict) -> str:
-        name = deal.get("title", "Unknown")
-        original = format_price(deal.get("normalPrice", "0"))
-        current = format_price(deal.get("salePrice", "0"))
-
-        last_change = int(deal.get("lastChange", 0))
-        expiry = self._estimate_expiry(last_change)
-        expiry_str = format_arabic_date(expiry)
-
-        description = await generate_description(name, self._groq_api_key)
-
-        return (
-            f"- **{name}** {description} "
-            f"تم تنزيل السعر من {original} إلى {current} "
-            f"وينتهي هذا العرض يوم {expiry_str}"
+        embed = discord.Embed(
+            title="Daily Gaming News Roundup",
+            color=0x00AEFF,
+            timestamp=datetime.now(timezone.utc),
         )
 
-    @staticmethod
-    def _estimate_expiry(last_change_unix: int) -> int:
-        week = 7 * 24 * 3600
-        estimated = last_change_unix + week
-        now = int(datetime.now(timezone.utc).timestamp())
-        return estimated if estimated > now else now + week
+        for article in NEWS_TEMPLATES:
+            embed.add_field(
+                name=article["title"],
+                value=f"{article['description']}\n[Read more]({article['url']})",
+                inline=False,
+            )
+
+        tldr = await ask_groq(
+            self._groq_api_key,
+            "You are a gaming industry analyst. Summarise today's gaming news in one witty sentence.",
+            "Summarise the following gaming news headlines: "
+            + ", ".join(n["title"] for n in NEWS_TEMPLATES),
+        )
+        if tldr:
+            embed.set_footer(text=f"AI TL;DR — {tldr}")
+
+        await channel.send(embed=embed)
+
+    @daily_news.before_loop
+    async def before_daily_news(self) -> None:
+        await self.wait_until_ready()
