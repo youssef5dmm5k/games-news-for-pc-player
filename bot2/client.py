@@ -57,36 +57,64 @@ class SteamPriceBot(discord.Client):
 
         store_names = list(next(iter(STEAM_CARDS.values()))["stores"].keys())
         header = "| Card | " + " | ".join(store_names) + " |"
-        separator = "|------|" + "|".join("------" for _ in store_names) + "|"
+        sep = "|------|" + "|".join("------" for _ in store_names) + "|"
 
         rows = []
         analysis_lines = []
+        best_saving = ("", 0, "")
         for name, info in STEAM_CARDS.items():
             prices = [f"${info['stores'][s]['price']:.2f}" for s in store_names]
             rows.append(f"| {name} | " + " | ".join(prices) + " |")
-            analysis_lines.append(f"{name}: " + ", ".join(
-                f"{s}=${d['price']:.2f}" for s, d in info["stores"].items()
-            ))
+            store_list = ", ".join(f"{s}=${d['price']:.2f}" for s, d in info["stores"].items())
+            analysis_lines.append(f"{name}: {store_list}")
+            face_value = info["denomination"]
+            cheapest = min(s["price"] for s in info["stores"].values())
+            saving = face_value - cheapest
+            if saving > best_saving[0]:
+                best_saving = (saving, name, cheapest)
 
-        grid = f"```\n{header}\n{separator}\n" + "\n".join(rows) + "\n```"
+        table = f"```\n{header}\n{sep}\n" + "\n".join(rows) + "\n```"
+
+        grid_lines = []
+        grid_lines.append(f"`{'STORE':<12} {'$10':>8} {'$20':>8} {'$50':>8}`")
+        grid_lines.append(f"`{'------':<12} {'---':>8} {'---':>8} {'---':>8}`")
+        for store in store_names:
+            vals = [f"${STEAM_CARDS[name]['stores'][store]['price']:.2f}" for name in STEAM_CARDS]
+            grid_lines.append(f"`{store:<12} {vals[0]:>8} {vals[1]:>8} {vals[2]:>8}`")
+        grid = "```\n" + "\n".join(grid_lines) + "\n```"
 
         embed = discord.Embed(
             title="Steam Gift Card Price Matrix",
-            description="Real-time price comparison across trusted marketplaces.\n\n" + grid,
+            description=(
+                "Automated cross-platform price comparison — updated every 24 hours.\n\n"
+                "### Store × Denomination Grid\n" + grid
+            ),
             color=0x9147FF,
             timestamp=datetime.now(timezone.utc),
         )
 
+        embed.add_field(
+            name="Card Breakdown",
+            value=table,
+            inline=False,
+        )
+
         insight = await ask_groq(
             self._groq_api_key,
-            "You are a sharp AI shopping analyst. Provide one witty, insightful sentence about the best Steam card deal based on the price data.",
-            "Analyse these Steam Gift Card prices: " + "; ".join(analysis_lines),
+            "You are a sharp AI pricing analyst. Provide one clever, data-driven sentence about the best Steam card deal based on the price matrix. Mention actual store names and dollar amounts.",
+            "Analyse these Steam Gift Card prices and identify the best value: "
+            + "; ".join(analysis_lines),
         )
         if insight:
             embed.add_field(
-                name="AI Shopping Insight",
+                name="AI Price Analysis Insight",
                 value=insight,
                 inline=False,
+            )
+
+        if best_saving[0] > 0:
+            embed.set_footer(
+                text=f"Best value: {best_saving[1]} — save ${best_saving[0]:.2f} vs face value"
             )
 
         await channel.send(embed=embed)

@@ -1,55 +1,71 @@
-# NexusAutomation Hub — Multi-Instance Autonomous AI Bots
+# NexusGaming OmniHub — Advanced Multi-Instance Autonomous AI Platform
 
-A production-grade Python framework that runs **two fully autonomous Discord bots** inside a single process using `asyncio.gather`. Zero interactive commands, zero databases — every operation is driven by background task loops with AI-generated content via Groq LLM.
+A production-grade Python framework that orchestrates **two fully autonomous Discord bots** within a single process using `asyncio.gather`. Zero interactive commands. Zero databases. Every operation runs on scheduled background loops with AI-generated content via Groq LLM. Designed for set-and-forget deployment on Railway.
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│                    main.py                        │
-│            asyncio.gather (dual loop)             │
-├──────────────────────┬───────────────────────────┤
-│   Bot 1              │   Bot 2                   │
-│   Gaming News        │   Steam Price Monitor     │
-│                      │                           │
-│  ┌────────────────┐  │  ┌─────────────────────┐  │
-│  │ Hardcoded news │  │  │ Hardcoded price     │  │
-│  │ templates      │  │  │ matrix (3 cards ×   │  │
-│  │ Groq AI TL;DR  │  │  │ 3 stores)           │  │
-│  │ 24h loop       │  │  │ Groq AI insight     │  │
-│  └────────────────┘  │  │ 24h loop            │  │
-│                      │  └─────────────────────┘  │
-└──────────────────────┴───────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│                      main.py                            │
+│              asyncio.gather (dual loop)                 │
+├─────────────────────────┬──────────────────────────────┤
+│     Bot 1               │     Bot 2                    │
+│     Gaming News Hub     │     Steam Price Monitor      │
+│                         │                              │
+│  ┌───────────────────┐  │  ┌────────────────────────┐  │
+│  │ عروض وتخفيضات اليوم│  │  │ Hardcoded price matrix │  │
+│  │ (Deals Section)    │  │  │ Steam $10 / $20 / $50  │  │
+│  ├───────────────────┤  │  │ Kinguin · Eneba · G2A  │  │
+│  │ أهم أخبار الألعاب  │  │  │ Groq AI Price Analysis │  │
+│  │ (News Section)     │  │  │ 24h background loop    │  │
+│  ├───────────────────┤  │  └────────────────────────┘  │
+│  │ مواعيد النزول     │  │                              │
+│  │ (Releases Section) │  │                              │
+│  │ Groq AI TL;DR × 3  │  │                              │
+│  │ 24h background loop│  │                              │
+│  └───────────────────┘  │                              │
+└─────────────────────────┴──────────────────────────────┘
 ```
 
-Both bots authenticate independently with separate Discord tokens, maintain separate Gateway connections, and operate on separate channels — yet they share the same Python process, configuration source, and event loop.
+Both bots authenticate with separate Discord tokens, maintain independent Gateway connections, and target separate channels — yet share the same Python process, configuration, and event loop.
 
 ---
 
-## Key Features
+## Core Features
 
-### Fully Autonomous (No Interaction Required)
-- **No slash commands** — bots post automatically on a 24-hour schedule
-- **No databases** — all data is hardcoded, zero external dependencies
-- **No user input** — set-and-forget deployment on Railway
+### Fully Autonomous Operation
+- **Zero slash commands** — bots post automatically on a 24-hour cycle
+- **Zero databases** — all data is hardcoded, no external dependencies
+- **Zero user interaction** — deploy and forget
 
-### Bot 1 — Autonomous Gaming News Tracker
-- Posts a curated **5-story gaming news roundup** every 24 hours
-- Each article includes a title, summary, and direct link
-- Uses **Groq LLM** to generate a unique, witty AI TL;DR footer
-- Beautiful embed with timestamp and branded colour
+### Bot 1 — Autonomous Gaming News Hub
+
+Posts a single embed every 24 hours containing three Arabic sections with individual AI TL;DR summaries:
+
+| Section | Content | AI Integration |
+|---------|---------|----------------|
+| **عروض وتخفيضات اليوم** | 5 curated deals from Steam & Epic Games with discount percentages and store links | Groq generates a sharp Arabic summary of today's best discounts |
+| **أهم أخبار الألعاب العالمية** | 5 trending gaming industry headlines with summaries | Groq generates an insightful Arabic news roundup |
+| **مواعيد نزول الألعاب القادمة** | 5 upcoming game releases with dates and platforms | Groq generates an exciting Arabic release calendar preview |
+
+All three Groq calls run **concurrently** via `asyncio.gather` for optimal performance.
 
 ### Bot 2 — Autonomous Steam Price Monitor
-- Posts a **price matrix embed** every 24 hours comparing Steam Gift Cards ($10, $20, $50) across Kinguin, Eneba, and G2A
-- Professional monospace grid layout for at-a-glance comparison
-- Uses **Groq LLM** to inject a dynamic AI Shopping Insight highlighting the best deal
 
-### AI Integration (Groq)
+- Posts a **professional grid-style embed** every 24 hours comparing Steam Gift Cards across Kinguin, Eneba, and G2A
+- Three card denominations: $10, $20, $50
+- Dual-format display: card-by-card breakdown table + store-by-store cross-reference grid
+- **Groq AI Price Analysis Insight** identifies the best value deal with dollar amounts and store names
+- Auto-calculated footer showing the card with the highest absolute saving versus face value
+
+### AI Integration (Groq LLM)
+
 - Shared `llm.py` module wraps the official `AsyncGroq` SDK
-- Both bots call the same helper with different system prompts
-- Graceful fallback — if the API call fails, the bot posts without AI content
+- Bot 1 performs **3 concurrent** Groq calls per cycle for each section's TL;DR
+- Bot 2 performs **1** Groq call per cycle for pricing analysis
+- Graceful degradation — if any Groq call fails, the section posts without AI content
 
 ---
 
@@ -59,13 +75,13 @@ Both bots authenticate independently with separate Discord tokens, maintain sepa
 - Python 3.10 or newer
 - Two Discord bot tokens ([Discord Developer Portal](https://discord.com/developers/applications))
 - A Groq API key ([Groq Console](https://console.groq.com/keys))
-- Two Discord text channels (one per bot)
+- Two Discord text channels in your server
 
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/nexus-automation-hub.git
-cd nexus-automation-hub
+git clone https://github.com/your-username/nexusgaming-omnihub.git
+cd nexusgaming-omnihub
 
 python -m venv venv
 venv\Scripts\activate       # Windows
@@ -92,7 +108,7 @@ GROQ_API_KEY=your_groq_api_key_here
 
 ### Invite the Bots
 
-Generate OAuth2 invite URLs for both applications with the `bot` scope and **Send Messages**, **Embed Links**, and **View Channels** permissions.
+Generate OAuth2 invite URLs for both applications with the `bot` scope and **Send Messages**, **Embed Links**, and **View Channels** permissions. No `applications.commands` scope required.
 
 ---
 
@@ -102,7 +118,7 @@ Generate OAuth2 invite URLs for both applications with the `bot` scope and **Sen
 python main.py
 ```
 
-Both bots connect simultaneously. Each 24-hour loop fires **immediately on `on_ready`**, then every 24 hours thereafter.
+Both bots connect simultaneously. Each 24-hour background loop fires **immediately on `on_ready`**, then every 24 hours thereafter.
 
 ---
 
@@ -114,21 +130,21 @@ Both bots connect simultaneously. Each 24-hour loop fires **immediately on `on_r
 4. Railway detects `requirements.txt` and installs dependencies automatically
 5. Start command: `python main.py`
 
-No `Dockerfile` required — Railway's Python builder handles everything.
+No `Dockerfile`, no `Procfile`, no configuration files needed.
 
 ---
 
 ## Project Structure
 
 ```
-nexus-automation-hub/
+nexusgaming-omnihub/
 ├── main.py                  # Entry point — asyncio.gather dual-boot
 ├── config.py                # Shared Settings dataclass (env vars)
 ├── llm.py                   # Shared AsyncGroq wrapper
 ├── bot1/
-│   └── client.py            # GameNewsBot — 24h background loop
+│   └── client.py            # GameNewsBot — 24h loop with 3 AI sections
 ├── bot2/
-│   └── client.py            # SteamPriceBot — 24h background loop
+│   └── client.py            # SteamPriceBot — 24h loop with price grid
 ├── .env / .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -139,7 +155,7 @@ nexus-automation-hub/
 
 ## Performance
 
-Two bot instances in a single process share the Python interpreter, the event loop, and cached modules. Typical RAM usage on Railway (512 MB plan): ~80–110 MB for both bots.
+Two bot instances in a single process share the Python interpreter, the event loop, and cached modules. Typical RAM usage on Railway (512 MB plan): ~80–110 MB for both bots combined.
 
 ---
 
