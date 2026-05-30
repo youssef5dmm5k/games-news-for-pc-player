@@ -1,37 +1,44 @@
-# AGENTS.md — NexusAutomation Hub
+# NexusGaming Tracker
 
 ## Architecture
-- `main.py` — entrypoint, `asyncio.gather` launches both bots concurrently
-- Both bots are `discord.Client` (NOT `commands.Bot`) — no slash commands, no `tree.sync()`, no `setup_hook`
-- Both use `@tasks.loop(hours=24)` — fires **immediately** on `on_ready`, then every 24h
-- `config.py` — uses `os.getenv()` (returns `""`/`0` for missing vars, never crashes)
-- `llm.py` — shared `AsyncGroq` wrapper. Named `llm.py` (NOT `groq.py`) because the pip package `groq` would shadow it and cause a circular import
+- `main.py` — standalone script with everything in one file
+- Single `discord.Client` (NOT `commands.Bot`) — no slash commands, no `tree.sync()`, no `setup_hook`
+- `@tasks.loop(hours=24)` fires **immediately** on `on_ready`, then every 24h
+- 3 env vars: `DISCORD_TOKEN`, `CHANNEL_ID_1`, `GROQ_API_KEY`
+- `llm.py` — `AsyncGroq` wrapper. Named `llm.py` (NOT `groq.py`) because pip package `groq` shadows it
 
-## Data
-- **Bot 1** (`bot1/client.py`): hardcoded `NEWS_TEMPLATES` list — 5 articles
-- **Bot 2** (`bot2/client.py`): hardcoded `STEAM_CARDS` dict — 3 denominations × 3 stores
-- No databases, no JSON files, no external APIs (other than Groq)
+## Data fetching
+- Epic Games: `freeGamesPromotions` → `data.Catalog.searchStore.elements[]`
+- Steam: `featuredcategories` → `specials.items[]` — no `endDate` from API, hardcoded to `now + 7 days`
+- Prices in cents → `_cents_to_dollars()`
+- Filter: skips `origPrice == discPrice` **unless** active `promotionalOffers` exist (free-to-keep promos)
+- Both API calls via `asyncio.gather` with `return_exceptions=True`
+- `_free` flag = `orig == 0 and disc == 0` → uses "متوفرة مجاناً الآن" text; distinct from `sale == 0` which uses "مجاناً"
 
-## Environment vars (all read by `config.py`)
-```
-DISCORD_TOKEN     Bot 1 token
-BOT_TOKEN_2       Bot 2 token
-CHANNEL_ID_1      Target channel for Bot 1 (int)
-CHANNEL_ID_2      Target channel for Bot 2 (int)
-GROQ_API_KEY      Groq LLM key
-```
-Missing vars → bot is silently skipped, no crash.
-
-## Run
-```bash
-pip install -r requirements.txt
-python main.py
-```
+## Output format
+- Plain markdown message (no embed)
+- Format: `🎮 **عروض {store} اليوم**` then per deal `• **{TITLE.upper()}**\n  {desc}.\n  {price_line}.`
+- Desc punctuation: Groq output is stripped of `.`/`!` then format re-adds `.` — prevents double punctuation
+- Prices: `39.99$` (`:.2f$`)
+- Arabic dates via `_format_ar_date()` → `ARABIC_MONTHS` dict
+- Messages auto-split at 2000-char Discord limit (header sent first, then chunks)
 
 ## Gotchas
-- **Intents**: `discord.Intents.all()` — must be enabled in Discord Developer Portal
-- **Bot invite**: only needs `bot` scope + Send Messages / Embed Links / View Channels. No `applications.commands` scope needed
-- **Railway**: No Dockerfile needed. Start command is `python main.py`
-- **Groq model**: `llama-3.1-8b-instant` in `llm.py:12`
 - **`llm.py` naming**: MUST stay `llm.py` — renaming to `groq.py` breaks imports
-- **First loop**: fires on `on_ready`, not after 24h. No `wait_until_ready` needed (handled by `before_loop`)
+- **`aiohttp`**: not in `requirements.txt`, available as transitive dep of `discord.py` — do not add it manually
+- **First loop**: fires on `on_ready` (not after 24h), uses `before_loop` with `wait_until_ready`
+- **No tests, no lint, no CI** in this repo
+- **`load_dotenv()`**: runs at entrypoint for local `.env` support (main.py:204)
+- **Groq model**: `llama-3.1-8b-instant` in `llm.py:12`, `max_tokens=60` in `_get_desc`
+## bot form
+
+
+- NEW — for paid games with known orig price:
+f"• {deal['title']}\n"
+f"{desc}\n"
+f"تم تنزيل السعر من {deal['original']:.2f}$ إلى {sale_str} وينتهي هذا العرض {ends_str}.\n"
+
+- NEW — for free games with unknown orig (original == -1):
+f"• {deal['title']}\n"
+f"{desc}\n"
+f"متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.\n"
