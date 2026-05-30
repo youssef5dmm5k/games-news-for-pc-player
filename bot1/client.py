@@ -109,9 +109,10 @@ class GameNewsBot(discord.Client):
             total = price.get("totalPrice") or {}
             orig = total.get("originalPrice", 0)
             disc = total.get("discountPrice", 0)
-            if orig == disc:
-                continue
             promo = el.get("promotions")
+            is_free_promo = bool(promo and promo.get("promotionalOffers"))
+            if orig == disc and not is_free_promo:
+                continue
             end_date = None
             if promo:
                 offers = promo.get("promotionalOffers", [])
@@ -123,11 +124,13 @@ class GameNewsBot(discord.Client):
                             if ed:
                                 end_date = ed
             title = el.get("title", "Unknown Title")
+            has_price = orig > 0
             deals.append({
                 "title": title,
-                "original": _cents_to_dollars(orig),
+                "original": _cents_to_dollars(orig) if has_price else None,
                 "sale": _cents_to_dollars(disc),
                 "ends": _format_ar_date(end_date) if end_date else None,
+                "_free": not has_price and disc == 0,
             })
         return deals
 
@@ -164,17 +167,20 @@ class GameNewsBot(discord.Client):
         lines = [f"\u2728 **\u0639\u0631\u0648\u0636 {store} \u0627\u0644\u064a\u0648\u0645**\n"]
         for deal in deals:
             desc = await self._get_ar_desc(deal["title"])
-            sale_str = "\u0645\u062c\u0627\u0646\u0627\u064b" if deal["sale"] == 0 else f"{deal['sale']:.2f}$"
             ends_str = (
                 f"\u064a\u0648\u0645 {deal['ends']}"
                 if deal["ends"]
                 else "\u0642\u0631\u064a\u0628\u0627\u064b"
             )
+            if deal.get("_free"):
+                price_line = f"\u0645\u062a\u0648\u0641\u0631\u0629 \u0645\u062c\u0627\u0646\u0627\u064b \u0627\u0644\u0622\u0646 \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
+            else:
+                sale_str = "\u0645\u062c\u0627\u0646\u0627\u064b" if deal["sale"] == 0 else f"{deal['sale']:.2f}$"
+                price_line = f"\u062a\u0645 \u062a\u0646\u0632\u064a\u0644 \u0627\u0644\u0633\u0639\u0631 \u0645\u0646 {deal['original']:.2f}$ \u0625\u0644\u0649 {sale_str} \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
             lines.append(
-                f"\u2022 **{deal['title']}**\n"
-                f"  {desc}\n"
-                f"  \u062a\u0645 \u062a\u0646\u0632\u064a\u0644 \u0627\u0644\u0633\u0639\u0631 \u0645\u0646 {deal['original']:.2f}$ \u0625\u0644\u0649 {sale_str} "
-                f"\u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}.\n"
+                f"\u2022 {deal['title']}\n"
+                f"{desc}\n"
+                f"{price_line}\n"
             )
 
         color = 0x00AEFF if store == "Steam" else 0x9147FF
