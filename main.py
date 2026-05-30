@@ -35,10 +35,17 @@ async def main() -> None:
     bot1 = GameNewsBot(settings)
     bot2 = PriceCompareBot(settings)
 
-    await asyncio.gather(
+    tasks = [
         _run_bot(bot1, settings.bot1_token, "Bot 1 — Game News"),
-        _run_bot(bot2, settings.bot2_token, "Bot 2 — Price Compare"),
-    )
+    ]
+
+    token2 = settings.bot2_token
+    if token2 and token2 != "YOUR_SECOND_BOT_TOKEN_HERE":
+        tasks.append(_run_bot(bot2, token2, "Bot 2 — Price Compare"))
+    else:
+        logger.warning("BOT_TOKEN_2 not set — Bot 2 (Price Compare) will not start")
+
+    await asyncio.gather(*tasks)
 
 
 if __name__ == "__main__":
