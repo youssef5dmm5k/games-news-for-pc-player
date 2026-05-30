@@ -1,4 +1,4 @@
-# NexusGaming Tracker — Autonomous AI Gaming Deals Bot
+# NexusGaming Tracker — Live API Gaming Deals Bot
 
 A single-bot system that fetches **live game deals** from Epic Games and Steam every 24 hours and posts them to a Discord channel with **AI-generated Arabic descriptions** powered by Groq (Llama 3.3 70B).
 
@@ -37,26 +37,19 @@ Copy `.env.example` to `.env` and fill in your values.
 
 ## Output Format
 
-Messages follow this exact structure:
+Messages follow this exact structure — each deal is a single continuous line:
 
 ```
-🎮 **عروض Epic Games اليوم**
-• Game Title
-AI-generated Arabic description sentence.
-تم تنزيل السعر من 39.99$ إلى 29.99$ وينتهي هذا العرض يوم 15 يونيو.
+✨ **عروض Epic Games اليوم**
 
-🎮 **عروض Steam اليوم**
-• Another Game
-AI-generated Arabic description sentence.
-تم تنزيل السعر من 19.99$ إلى 9.99$ وينتهي هذا العرض يوم 22 يونيو.
+• **Phonopolis** لعبة رائعة من الاستوديو "ستيموفاركس" تعيد إحياء الذكريات الصوتية. تم تنزيل السعر من 35.98$ إلى 20.38$ وينتهي هذا العرض يوم 6 يونيو.
+• **Suicide Squad: Kill the Justice League** لعبة بطل خارق من استوديو روكستيد. تم تنزيل السعر من 69.99$ إلى 3.49$ وينتهي هذا العرض يوم 1 يونيو.
 ```
 
-Free-to-keep promotions use a distinct format:
+Free-to-keep promotions:
 
 ```
-• Free Game Title
-AI-generated Arabic description sentence.
-متوفرة مجاناً الآن وينتهي هذا العرض يوم 15 يونيو.
+• **Free Game Title** AI description sentence. متوفرة مجاناً الآن وينتهي هذا العرض يوم 15 يونيو.
 ```
 
 ## Deployment
