@@ -18,32 +18,45 @@ logger = logging.getLogger("main")
 
 
 async def _run_bot(bot, token: str, name: str) -> None:
-    """Start a single bot instance and keep it running."""
     try:
         logger.info("Starting %s...", name)
         async with bot:
             await bot.start(token)
     except Exception as exc:
         logger.critical("%s crashed: %s", name, exc)
-        raise
 
 
 async def main() -> None:
     load_dotenv()
     settings = validate_settings()
 
-    bot1 = GameNewsBot(settings)
-    bot2 = PriceCompareBot(settings)
+    tasks: list = []
 
-    tasks = [
-        _run_bot(bot1, settings.bot1_token, "Bot 1 — Game News"),
-    ]
-
-    token2 = settings.bot2_token
-    if token2 and token2 != "YOUR_SECOND_BOT_TOKEN_HERE":
-        tasks.append(_run_bot(bot2, token2, "Bot 2 — Price Compare"))
+    if settings.bot1_token and settings.channel_id_1:
+        tasks.append(
+            _run_bot(
+                GameNewsBot(settings),
+                settings.bot1_token,
+                "Bot 1 — Game News",
+            )
+        )
     else:
-        logger.warning("BOT_TOKEN_2 not set — Bot 2 (Price Compare) will not start")
+        logger.warning("Skipping Bot 1 — missing BOT_TOKEN_1 or CHANNEL_ID_1")
+
+    if settings.bot2_token and settings.channel_id_2:
+        tasks.append(
+            _run_bot(
+                PriceCompareBot(settings),
+                settings.bot2_token,
+                "Bot 2 — Price Compare",
+            )
+        )
+    else:
+        logger.warning("Skipping Bot 2 — missing BOT_TOKEN_2 or CHANNEL_ID_2")
+
+    if not tasks:
+        logger.error("No bots configured — check your .env file")
+        return
 
     await asyncio.gather(*tasks)
 
