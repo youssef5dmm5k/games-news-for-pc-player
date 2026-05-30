@@ -15,7 +15,7 @@
 
 ## Dual-bot architecture
 - Both bots run in one process via `asyncio.gather`
-- Each has its own Discord token from `.env` (`BOT_TOKEN_1`, `BOT_TOKEN_2`)
+- Each has its own Discord token from `.env` (`DISCORD_TOKEN`, `BOT_TOKEN_2`)
 - Separate Gateway connections, separate command trees
 - A crash in one bot does NOT stop the other
 

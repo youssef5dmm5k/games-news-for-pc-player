@@ -41,7 +41,7 @@ async def main() -> None:
             )
         )
     else:
-        logger.warning("Skipping Bot 1 — missing BOT_TOKEN_1 or CHANNEL_ID_1")
+        logger.warning("Skipping Bot 1 — missing DISCORD_TOKEN or CHANNEL_ID_1")
 
     if settings.bot2_token and settings.channel_id_2:
         tasks.append(

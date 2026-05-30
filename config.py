@@ -15,9 +15,9 @@ class Settings:
 def validate_settings() -> Settings:
     warnings: list[str] = []
 
-    bot1_token = os.getenv("BOT_TOKEN_1", "")
+    bot1_token = os.getenv("DISCORD_TOKEN", "")
     if not bot1_token:
-        warnings.append("BOT_TOKEN_1 is missing — Bot 1 (News Tracker) will not start")
+        warnings.append("DISCORD_TOKEN is missing — Bot 1 (News Tracker) will not start")
 
     bot2_token = os.getenv("BOT_TOKEN_2", "")
     groq_api_key = os.getenv("GROQ_API_KEY", "")
