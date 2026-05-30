@@ -8,10 +8,14 @@ MODEL = "llama-3.1-8b-instant"
 MAX_RETRIES = 3
 FALLBACK_PHRASE = "لعبة مميزة"
 
-logger = logging.getLogger("game_deals_bot.groq")
+logger = logging.getLogger("bot1.groq")
 
 
 async def generate_description(game_name: str, api_key: str) -> str:
+    """Request a short Arabic description for *game_name* from Groq.
+
+    Falls back to *FALLBACK_PHRASE* after *MAX_RETRIES* failed attempts.
+    """
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -41,21 +45,19 @@ async def generate_description(game_name: str, api_key: str) -> str:
                 ) as resp:
                     if resp.status == 429:
                         logger.warning("Groq rate limited — retry %d/%d", attempt, MAX_RETRIES)
-                        await asyncio.sleep(2 ** attempt)
+                        await asyncio.sleep(2**attempt)
                         continue
-
                     if not resp.ok:
                         error_text = await resp.text()
                         logger.error("Groq HTTP %d: %s", resp.status, error_text)
                         return FALLBACK_PHRASE
-
                     data = await resp.json()
                     content = data["choices"][0]["message"]["content"].strip()
                     return content if content else FALLBACK_PHRASE
 
         except (aiohttp.ClientError, asyncio.TimeoutError, KeyError, IndexError) as exc:
-            logger.warning("Groq attempt %d/%d failed: %s", attempt, MAX_RETRIES, exc)
+            logger.warning("Groq attempt %d/%d: %s", attempt, MAX_RETRIES, exc)
             if attempt < MAX_RETRIES:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
     return FALLBACK_PHRASE

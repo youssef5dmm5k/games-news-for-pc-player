@@ -1,0 +1,221 @@
+{
+  "gift_cards": [
+    {
+      "name": "Steam Gift Card $10",
+      "platform": "Steam",
+      "denomination": 10,
+      "currency": "USD",
+      "stores": [
+        { "name": "Amazon",    "price": 10.00, "url": "https://www.amazon.com/dp/B0B7R7R7R7" },
+        { "name": "GameStop",  "price": 9.50,  "url": "https://www.gamestop.com/steam-10" },
+        { "name": "Best Buy",  "price": 9.99,  "url": "https://www.bestbuy.com/steam-10" },
+        { "name": "Walmart",   "price": 10.00, "url": "https://www.walmart.com/steam-10" }
+      ]
+    },
+    {
+      "name": "Steam Gift Card $20",
+      "platform": "Steam",
+      "denomination": 20,
+      "currency": "USD",
+      "stores": [
+        { "name": "Amazon",    "price": 20.00, "url": "https://www.amazon.com/dp/B0B7R8R8R8" },
+        { "name": "GameStop",  "price": 18.50, "url": "https://www.gamestop.com/steam-20" },
+        { "name": "Best Buy",  "price": 19.99, "url": "https://www.bestbuy.com/steam-20" },
+        { "name": "CDKeys",    "price": 17.89, "url": "https://www.cdkeys.com/steam-20" }
+      ]
+    },
+    {
+      "name": "Steam Gift Card $50",
+      "platform": "Steam",
+      "denomination": 50,
+      "currency": "USD",
+      "stores": [
+        { "name": "Amazon",    "price": 50.00, "url": "https://www.amazon.com/dp/B0B7R9R9R9" },
+        { "name": "GameStop",  "price": 47.00, "url": "https://www.gamestop.com/steam-50" },
+        { "name": "CDKeys",    "price": 44.50, "url": "https://www.cdkeys.com/steam-50" },
+        { "name": "Eneba",     "price": 45.20, "url": "https://www.eneba.com/steam-50" }
+      ]
+    },
+    {
+      "name": "PlayStation Store Card $25",
+      "platform": "PSN",
+      "denomination": 25,
+      "currency": "USD",
+      "stores": [
+        { "name": "Amazon",    "price": 25.00, "url": "https://www.amazon.com/dp/B0B7S0S0S0" },
+        { "name": "GameStop",  "price": 23.50, "url": "https://www.gamestop.com/psn-25" },
+        { "name": "Best Buy",  "price": 24.99, "url": "https://www.bestbuy.com/psn-25" },
+        { "name": "Walmart",   "price": 25.00, "url": "https://www.walmart.com/psn-25" }
+      ]
+    },
+    {
+      "name": "PlayStation Store Card $50",
+      "platform": "PSN",
+      "denomination": 50,
+      "currency": "USD",
+      "stores": [
+        { "name": "Amazon",    "price": 50.00, "url": "https://www.amazon.com/dp/B0B7S1S1S1" },
+        { "name": "GameStop",  "price": 47.00, "url": "https://www.gamestop.com/psn-50" },
+        { "name": "CDKeys",    "price": 43.90, "url": "https://www.cdkeys.com/psn-50" },
+        { "name": "Eneba",     "price": 44.80, "url": "https://www.eneba.com/psn-50" }
+      ]
+    },
+    {
+      "name": "PlayStation Store Card $100",
+      "platform": "PSN",
+      "denomination": 100,
+      "currency": "USD",
+      "stores": [
+        { "name": "Amazon",    "price": 100.00, "url": "https://www.amazon.com/dp/B0B7S2S2S2" },
+        { "name": "GameStop",  "price": 93.00,  "url": "https://www.gamestop.com/psn-100" },
+        { "name": "Costco",    "price": 89.99,  "url": "https://www.costco.com/psn-100" },
+        { "name": "CDKeys",    "price": 87.50,  "url": "https://www.cdkeys.com/psn-100" }
+      ]
+    },
+    {
+      "name": "Xbox Gift Card $25",
+      "platform": "Xbox",
+      "denomination": 25,
+      "currency": "USD",
+      "stores": [
+        { "name": "Amazon",    "price": 25.00, "url": "https://www.amazon.com/dp/B0B7T0T0T0" },
+        { "name": "GameStop",  "price": 23.50, "url": "https://www.gamestop.com/xbox-25" },
+        { "name": "Best Buy",  "price": 24.99, "url": "https://www.bestbuy.com/xbox-25" },
+        { "name": "CDKeys",    "price": 22.40, "url": "https://www.cdkeys.com/xbox-25" }
+      ]
+    },
+    {
+      "name": "Xbox Gift Card $50",
+      "platform": "Xbox",
+      "denomination": 50,
+      "currency": "USD",
+      "stores": [
+        { "name": "Amazon",    "price": 50.00, "url": "https://www.amazon.com/dp/B0B7T1T1T1" },
+        { "name": "GameStop",  "price": 47.00, "url": "https://www.gamestop.com/xbox-50" },
+        { "name": "Costco",    "price": 44.99, "url": "https://www.costco.com/xbox-50" },
+        { "name": "CDKeys",    "price": 43.80, "url": "https://www.cdkeys.com/xbox-50" }
+      ]
+    },
+    {
+      "name": "Xbox Game Pass Ultimate 3-Month",
+      "platform": "Xbox",
+      "denomination": 3,
+      "unit": "months",
+      "currency": "USD",
+      "stores": [
+        { "name": "Amazon",    "price": 44.99, "url": "https://www.amazon.com/dp/B0B7T2T2T2" },
+        { "name": "CDKeys",    "price": 33.59, "url": "https://www.cdkeys.com/xbox-game-pass-3m" },
+        { "name": "Eneba",     "price": 34.50, "url": "https://www.eneba.com/xbox-game-pass-3m" },
+        { "name": "G2A",       "price": 35.20, "url": "https://www.g2a.com/xbox-game-pass-3m" }
+      ]
+    }
+  ],
+  "games": [
+    {
+      "name": "Elden Ring",
+      "platform": "Steam",
+      "stores": [
+        { "name": "Steam",              "price": 59.99, "url": "https://store.steampowered.com/app/1245620" },
+        { "name": "Green Man Gaming",   "price": 47.99, "url": "https://www.greenmangaming.com/elden-ring" },
+        { "name": "Fanatical",          "price": 49.99, "url": "https://www.fanatical.com/elden-ring" },
+        { "name": "Humble Store",       "price": 50.39, "url": "https://www.humblebundle.com/elden-ring" },
+        { "name": "Instant Gaming",     "price": 44.85, "url": "https://www.instant-gaming.com/elden-ring" }
+      ]
+    },
+    {
+      "name": "Red Dead Redemption 2",
+      "platform": "Steam",
+      "stores": [
+        { "name": "Steam",              "price": 59.99, "url": "https://store.steampowered.com/app/1174180" },
+        { "name": "Green Man Gaming",   "price": 28.79, "url": "https://www.greenmangaming.com/rdr2" },
+        { "name": "Fanatical",          "price": 29.99, "url": "https://www.fanatical.com/rdr2" },
+        { "name": "CDKeys",             "price": 25.49, "url": "https://www.cdkeys.com/rdr2" }
+      ]
+    },
+    {
+      "name": "Cyberpunk 2077",
+      "platform": "Steam",
+      "stores": [
+        { "name": "Steam",              "price": 59.99, "url": "https://store.steampowered.com/app/1091500" },
+        { "name": "Green Man Gaming",   "price": 35.99, "url": "https://www.greenmangaming.com/cyberpunk-2077" },
+        { "name": "Fanatical",          "price": 37.99, "url": "https://www.fanatical.com/cyberpunk-2077" },
+        { "name": "GOG",                "price": 59.99, "url": "https://www.gog.com/game/cyberpunk_2077" },
+        { "name": "CDKeys",             "price": 32.79, "url": "https://www.cdkeys.com/cyberpunk-2077" }
+      ]
+    },
+    {
+      "name": "God of War (2018)",
+      "platform": "Steam",
+      "stores": [
+        { "name": "Steam",              "price": 49.99, "url": "https://store.steampowered.com/app/1593500" },
+        { "name": "Green Man Gaming",   "price": 39.99, "url": "https://www.greenmangaming.com/god-of-war" },
+        { "name": "Fanatical",          "price": 41.99, "url": "https://www.fanatical.com/god-of-war" },
+        { "name": "Fanatical",          "price": 34.99, "url": "https://www.fanatical.com/god-of-war-deluxe" },
+        { "name": "CDKeys",             "price": 36.49, "url": "https://www.cdkeys.com/god-of-war" }
+      ]
+    },
+    {
+      "name": "Hogwarts Legacy",
+      "platform": "Steam",
+      "stores": [
+        { "name": "Steam",              "price": 59.99, "url": "https://store.steampowered.com/app/990080" },
+        { "name": "Green Man Gaming",   "price": 41.99, "url": "https://www.greenmangaming.com/hogwarts-legacy" },
+        { "name": "Fanatical",          "price": 43.99, "url": "https://www.fanatical.com/hogwarts-legacy" },
+        { "name": "Instant Gaming",     "price": 38.42, "url": "https://www.instant-gaming.com/hogwarts-legacy" },
+        { "name": "CDKeys",             "price": 40.19, "url": "https://www.cdkeys.com/hogwarts-legacy" }
+      ]
+    },
+    {
+      "name": "Spider-Man: Miles Morales",
+      "platform": "Steam",
+      "stores": [
+        { "name": "Steam",              "price": 49.99, "url": "https://store.steampowered.com/app/1817190" },
+        { "name": "Green Man Gaming",   "price": 34.99, "url": "https://www.greenmangaming.com/spider-man-miles-morales" },
+        { "name": "Fanatical",          "price": 36.99, "url": "https://www.fanatical.com/spider-man-miles-morales" },
+        { "name": "CDKeys",             "price": 32.89, "url": "https://www.cdkeys.com/spider-man-miles-morales" }
+      ]
+    },
+    {
+      "name": "The Witcher 3: Wild Hunt",
+      "platform": "Steam",
+      "stores": [
+        { "name": "Steam",              "price": 39.99, "url": "https://store.steampowered.com/app/292030" },
+        { "name": "GOG",                "price": 39.99, "url": "https://www.gog.com/game/the_witcher_3" },
+        { "name": "Green Man Gaming",   "price": 19.99, "url": "https://www.greenmangaming.com/witcher-3" },
+        { "name": "Fanatical",          "price": 21.99, "url": "https://www.fanatical.com/witcher-3" },
+        { "name": "CDKeys",             "price": 17.99, "url": "https://www.cdkeys.com/witcher-3" }
+      ]
+    },
+    {
+      "name": "God of War Ragnarök",
+      "platform": "PSN",
+      "stores": [
+        { "name": "PlayStation Store",  "price": 69.99, "url": "https://store.playstation.com/gow-ragnarok" },
+        { "name": "Amazon",             "price": 49.99, "url": "https://www.amazon.com/gow-ragnarok" },
+        { "name": "GameStop",           "price": 49.99, "url": "https://www.gamestop.com/gow-ragnarok" },
+        { "name": "Best Buy",           "price": 54.99, "url": "https://www.bestbuy.com/gow-ragnarok" }
+      ]
+    },
+    {
+      "name": "Starfield",
+      "platform": "Xbox",
+      "stores": [
+        { "name": "Xbox Store",         "price": 69.99, "url": "https://www.xbox.com/starfield" },
+        { "name": "Amazon",             "price": 49.99, "url": "https://www.amazon.com/starfield" },
+        { "name": "GameStop",           "price": 44.99, "url": "https://www.gamestop.com/starfield" },
+        { "name": "Best Buy",           "price": 54.99, "url": "https://www.bestbuy.com/starfield" },
+        { "name": "Walmart",            "price": 49.99, "url": "https://www.walmart.com/starfield" }
+      ]
+    },
+    {
+      "name": "Forza Horizon 5",
+      "platform": "Xbox",
+      "stores": [
+        { "name": "Xbox Store",         "price": 59.99, "url": "https://www.xbox.com/forza-horizon-5" },
+        { "name": "Amazon",             "price": 39.99, "url": "https://www.amazon.com/forza-horizon-5" },
+        { "name": "GameStop",           "price": 34.99, "url": "https://www.gamestop.com/forza-horizon-5" },
+        { "name": "CDKeys",             "price": 28.99, "url": "https://www.cdkeys.com/forza-horizon-5" }
+      ]
+    }
+  ]
+}

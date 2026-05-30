@@ -12,10 +12,11 @@ STORE_IDS = {
 DEFAULT_PAGE_SIZE = 15
 MAX_RETRIES = 3
 
-logger = logging.getLogger("game_deals_bot.deals")
+logger = logging.getLogger("bot1.deals")
 
 
 async def fetch_deals(store_id: int) -> list[dict]:
+    """Fetch on-sale games from CheapShark for a given store."""
     url = "https://www.cheapshark.com/api/1.0/deals"
     params = {"storeID": store_id, "pageSize": DEFAULT_PAGE_SIZE, "onSale": "true"}
 
@@ -30,14 +31,13 @@ async def fetch_deals(store_id: int) -> list[dict]:
                         logger.warning("CheapShark rate limited — waiting %ds", retry_after)
                         await asyncio.sleep(retry_after)
                         continue
-
                     resp.raise_for_status()
                     data = await resp.json()
                     return data if isinstance(data, list) else []
 
             except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError) as exc:
-                logger.warning("CheapShark attempt %d/%d failed: %s", attempt, MAX_RETRIES, exc)
+                logger.warning("CheapShark attempt %d/%d: %s", attempt, MAX_RETRIES, exc)
                 if attempt < MAX_RETRIES:
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
 
         return []

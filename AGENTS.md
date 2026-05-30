@@ -1,35 +1,46 @@
-# AGENTS.md — Discord Game Deals Bot
+# AGENTS.md — OmniBot Hub
 
 ## Project structure
-- `main.py` — entry point, calls `load_dotenv()` then boots `GameDealsBot`
-- `bot/` — package:
-  - `config.py` — reads env vars (no config.json), validates, returns `Settings`
-  - `client.py` — `discord.Client` subclass with a 24h `@tasks.loop`
-  - `deals.py` — CheapShark API call (store IDs: Steam=1, Epic=25)
-  - `groq_client.py` — raw `aiohttp` POST to Groq API
-  - `formatters.py` — Arabic month names, price → "مجاناً" for 100% off
-- `config.json` — **DEPRECATED**, use `.env` instead
-- `.env` / `.env.example` — secrets via `python-dotenv`
+- `main.py` — entry point, `load_dotenv()` → `asyncio.gather` to boot both bots
+- `config.py` — validates env vars, returns shared `Settings` dataclass
+- `bot1/` — **Game News Tracker**:
+  - `client.py` — `discord.Client` with 24h `@tasks.loop`
+  - `deals.py` — CheapShark API (Steam=1, Epic=25)
+  - `groq_client.py` — raw `aiohttp` POST to Groq
+  - `formatters.py` — Arabic month names, "مجاناً" for 100% off
+- `bot2/` — **Price Comparator**:
+  - `client.py` — `commands.Bot` with `/compare` command + UI button
+  - `gift_cards.py` — JSON DB loader & search
+  - `data/gift_cards.json` — 19 bundled items
 
-## Key architecture facts
-- **No `groq` PyPI package** — uses raw `aiohttp` POST to `https://api.groq.com/openai/v1/chat/completions`
+## Dual-bot architecture
+- Both bots run in one process via `asyncio.gather`
+- Each has its own Discord token from `.env` (`BOT_TOKEN_1`, `BOT_TOKEN_2`)
+- Separate Gateway connections, separate command trees
+- A crash in one bot does NOT stop the other
+
+## Key facts
+- **No `groq` SDK** — uses raw `aiohttp` POST to Groq API
 - **CheapShark store IDs**: Steam=`1`, Epic Games=`25`
 - **Deal cap**: 15 per store (`pageSize` param)
 - **100% off → "مجاناً"** instead of `0$`
-- **Arabic date formatting**: ISO date → Arabic month name via a lookup dict (not `locale`)
+- **Arabic date formatting**: lookup dict (not `locale`)
+- **Groq model**: `llama-3.1-8b-instant` (NOT decommissioned `llama3-8b-8192`)
+- **Groq fallback**: `"لعبة مميزة"` after 3 retries
+- **Bot 2 JSON DB**: lives at `bot2/data/gift_cards.json` — editable by user
 
 ## Commands
-- No prefix/slash commands; background task sender only
+- Bot 1: no slash commands, background task only
+- Bot 2: `/compare <query>` — searches local JSON, returns sorted embed + buy button
 - Run: `python main.py`
 - Dependencies: `pip install -r requirements.txt`
 - Config: `cp .env.example .env`, fill in secrets
 
 ## Gotchas
 - **Discord intents** — `discord.Intents.default()`, no privileged intents
-- **Groq model**: `llama-3.1-8b-instant` (NOT decommissioned `llama3-8b-8192`)
-- **Groq fallback**: `"لعبة مميزة"` if API call fails after 3 retries
-- **First run**: `@tasks.loop` fires immediately on `on_ready`, not after 24h
-- **Channel ID**: stored as string in `.env`, validated + cast to `int` by `config.py`
+- **Channel IDs** — stored as strings in `.env`, cast to `int` by `config.py`
+- **First run (Bot 1)**: `@tasks.loop` fires immediately on `on_ready`, not after 24h
+- **First run (Bot 2)**: slash commands need `applications.commands` scope in invite URL
+- **`Bot 2 token`**: `BOT_TOKEN_2` is required even if only testing Bot 1 — set to any valid token or the same as Bot 1 for testing
 - **CheapShark pagination**: API default is 60 results; bot passes `pageSize=15`
-- **`config.json`**: If present, it is ignored. Remove it to avoid confusion.
-- **`AGENTS.md`** lives at repo root — update `opencode.json` if moved.
+- **`config.json`**: If present, ignore/delete it
