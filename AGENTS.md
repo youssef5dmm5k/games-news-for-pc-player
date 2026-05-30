@@ -5,7 +5,7 @@
 - Single `discord.Client` (NOT `commands.Bot`) — no slash commands, no `tree.sync()`, no `setup_hook`
 - `@tasks.loop(hours=24)` fires **immediately** on `on_ready`, then every 24h
 - 3 env vars: `DISCORD_TOKEN`, `CHANNEL_ID_1`, `GROQ_API_KEY`
-- `llm.py` — `AsyncGroq` wrapper. Named `llm.py` (NOT `groq.py`) because pip package `groq` shadows it
+- Inline `AsyncGroq` in `main.py` (not a separate module) — named `main.py` to avoid `groq` pip package shadowing
 
 ## Data fetching
 - Epic Games: `freeGamesPromotions` → `data.Catalog.searchStore.elements[]`
@@ -17,28 +17,41 @@
 
 ## Output format
 - Plain markdown message (no embed)
-- Format: `🎮 **عروض {store} اليوم**` then per deal `• **{TITLE.upper()}**\n  {desc}.\n  {price_line}.`
-- Desc punctuation: Groq output is stripped of `.`/`!` then format re-adds `.` — prevents double punctuation
-- Prices: `39.99$` (`:.2f$`)
+- Header: `✨ **عروض {store} اليوم**` then blank line
+- Per deal: `• {title}\n{desc} {price_line}` then blank line (desc & price_line on same line)
+- Price lines:
+  - `original == -1` → `متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.`
+  - `original > 0, sale == 0` → `تم تنزيل السعر من {orig}$ إلى مجاناً وينتهي هذا العرض {ends_str}.`
+  - `original > 0, sale > 0` → `تم تنزيل السعر من {orig}$ إلى {sale}$ وينتهي هذا العرض {ends_str}.`
+- Prices: `39.99$` (`:.2f$`), sale == 0 → `مجاناً`
 - Arabic dates via `_format_ar_date()` → `ARABIC_MONTHS` dict
 - Messages auto-split at 2000-char Discord limit (header sent first, then chunks)
+- Join separator between blocks: `\n\n` (blank line)
 
 ## Gotchas
-- **`llm.py` naming**: MUST stay `llm.py` — renaming to `groq.py` breaks imports
 - **`aiohttp`**: not in `requirements.txt`, available as transitive dep of `discord.py` — do not add it manually
 - **First loop**: fires on `on_ready` (not after 24h), uses `before_loop` with `wait_until_ready`
 - **No tests, no lint, no CI** in this repo
 - **`load_dotenv()`**: runs at entrypoint for local `.env` support (main.py:204)
-- **Groq model**: `llama-3.1-8b-instant` in `llm.py:12`, `max_tokens=60` in `_get_desc`
-## bot form
+- **Groq model**: `llama-3.3-70b-versatile` in `main.py:158`, `max_tokens=60` in `_get_desc`
+- **Groq import**: `from groq import AsyncGroq` in `main.py:10`
 
+## Bot form — exact message layout
 
-- NEW — for paid games with known orig price:
-f"• {deal['title']}\n"
-f"{desc}\n"
-f"تم تنزيل السعر من {deal['original']:.2f}$ إلى {sale_str} وينتهي هذا العرض {ends_str}.\n"
+```
+✨ **عروض Epic Games اليوم**
 
-- NEW — for free games with unknown orig (original == -1):
-f"• {deal['title']}\n"
-f"{desc}\n"
-f"متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.\n"
+• Game Title 1
+لعبة الرعب والمغامرات من استوديو رايان سوفتوير. تم تنزيل السعر من 69.99$ إلى مجاناً وينتهي هذا العرض يوم 6 يونيو.
+
+• Game Title 2
+لعبة بطل خارق من استوديو روكستيد. تم تنزيل السعر من 69.99$ إلى 3.49$ وينتهي هذا العرض يوم 1 يونيو.
+```
+
+- Header: `✨ **عروض {store} اليوم**` followed by blank line
+- Per deal block: `• {title}\n{desc} {price_line}`
+- `{desc}` ends with period (from AI) + space + `{price_line}` (ends with period) — all on one line
+- Blank line (`\n\n`) between each block
+- Free-to-keep (original == -1): `price_line` = `متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.`
+- Paid on sale (original > 0, sale == 0): `sale_str` = `مجاناً`
+- Paid on sale (original > 0, sale > 0): `sale_str` = `{sale:.2f}$`

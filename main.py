@@ -181,7 +181,7 @@ class GameDealsBot(discord.Client):
             return FALLBACK_DESC
 
     async def _post_deals(self, channel, store: str, deals: list[dict]) -> None:
-        lines = [f"\N{VIDEO GAME} **\u0639\u0631\u0648\u0636 {store} \u0627\u0644\u064a\u0648\u0645**\n"]
+        lines = [f"\u2728 **\u0639\u0631\u0648\u0636 {store} \u0627\u0644\u064a\u0648\u0645**"]
 
         for d in deals:
             desc = await self._get_desc(d["title"])
@@ -193,9 +193,9 @@ class GameDealsBot(discord.Client):
                 sale_str = "\u0645\u062c\u0627\u0646\u0627\u064b" if d["sale"] == 0 else f"{d['sale']:.2f}$"
                 price_line = f"\u062a\u0645 \u062a\u0646\u0632\u064a\u0644 \u0627\u0644\u0633\u0639\u0631 \u0645\u0646 {d['original']:.2f}$ \u0625\u0644\u0649 {sale_str} \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
 
-            lines.append(f"\u2022 {d['title']}\n{desc}\n{price_line}\n")
+            lines.append(f"\u2022 {d['title']}\n{desc} {price_line}")
 
-        full = "\n".join(lines)
+        full = "\n\n".join(lines)
         if len(full) <= 2000:
             await channel.send(full)
             return
@@ -206,15 +206,15 @@ class GameDealsBot(discord.Client):
         size = 0
         for line in lines[1:]:
             l = len(line)
-            if size + l > 1900:
-                await channel.send("\n".join(chunk))
+            if size + l > 1800:
+                await channel.send("\n\n".join(chunk))
                 chunk = [line]
                 size = l
             else:
                 chunk.append(line)
                 size += l
         if chunk:
-            await channel.send("\n".join(chunk))
+            await channel.send("\n\n".join(chunk))
 
     @daily_deals.before_loop
     async def before_daily_deals(self) -> None:
