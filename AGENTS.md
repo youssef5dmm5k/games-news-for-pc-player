@@ -9,24 +9,24 @@
 
 ## Data fetching
 - Epic Games: `freeGamesPromotions` → `data.Catalog.searchStore.elements[]`
-- Steam: `featuredcategories` → `specials.items[]` — no `endDate` from API, hardcoded to `now + 7 days`
+- Steam: `featuredcategories?cc=US` → `specials.items[]` — enforced US currency, no `endDate` from API, hardcoded to `now + 7 days`
 - Prices in cents → `_cents_to_dollars()`
 - Filter: skips `origPrice == discPrice` **unless** active `promotionalOffers` exist (free-to-keep promos)
 - Both API calls via `asyncio.gather` with `return_exceptions=True`
 - `_free` flag = `orig == 0 and disc == 0` → uses "متوفرة مجاناً الآن" text; distinct from `sale == 0` which uses "مجاناً"
 
 ## Output format
-- Plain markdown message (no embed)
-- Header: `✨ **عروض {store} اليوم**` then blank line
-- Per deal: `• **{title}** {desc} {price_line}` (single line, no inner line breaks)
+- Discord embed with colored sidebar per platform:
+  - Epic Games: `0x00df6d` (bright green), title: `✨ عروض Epic Games اليوم`
+  - Steam: `0x1b2838` (dark blue), title: `🎮 عروض Steam اليوم`
+- Per deal inside embed description: `• **{title}** {desc} {price_line}` (single line, no inner breaks)
 - Price lines:
   - `original == -1` → `متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.`
   - `original > 0, sale == 0` → `تم تنزيل السعر من {orig}$ إلى مجاناً وينتهي هذا العرض {ends_str}.`
   - `original > 0, sale > 0` → `تم تنزيل السعر من {orig}$ إلى {sale}$ وينتهي هذا العرض {ends_str}.`
 - Prices: `39.99$` (`:.2f$`), sale == 0 → `مجاناً`
 - Arabic dates via `_format_ar_date()` → `ARABIC_MONTHS` dict
-- Messages auto-split at 2000-char Discord limit (header sent first, then chunks)
-- Join separator between deals: `\n` (no blank lines between deals)
+- Embeds auto-split at 4096-char Discord limit (multiple embeds sent if needed)
 
 ## Gotchas
 - **`aiohttp`**: not in `requirements.txt`, available as transitive dep of `discord.py` — do not add it manually
@@ -35,20 +35,25 @@
 - **`load_dotenv()`**: runs at entrypoint for local `.env` support (main.py:204)
 - **Groq model**: `llama-3.3-70b-versatile` in `main.py:158`, `max_tokens=60` in `_get_desc`
 - **Groq import**: `from groq import AsyncGroq` in `main.py:10`
+- **Steam API**: uses `cc=US&l=english` for correct USD pricing (divide by 100.0)
 
 ## Bot form — exact message layout
 
 ```
-✨ **عروض Epic Games اليوم**
+✨ **عروض Epic Games اليوم**  ← embed title, green sidebar
 
 • **Phonopolis** لعبة رائعة من الاستوديو "ستيموفاركس" تعيد إحياء الذكريات الصوتية. تم تنزيل السعر من 35.98$ إلى 20.38$ وينتهي هذا العرض يوم 6 يونيو.
 • **Suicide Squad: Kill the Justice League** لعبة بطل خارق من استوديو روكستيد. تم تنزيل السعر من 69.99$ إلى 3.49$ وينتهي هذا العرض يوم 1 يونيو.
 ```
 
-- Header: `✨ **عروض {store} اليوم**` followed by blank line
-- Per deal block: `• **{title}** {desc} {price_line}`
-- `{desc}` ends with period (from AI) + space + `{price_line}` (ends with period) — all on one line, no inner line breaks
-- Join between deals: `\n` (no blank lines between deals — all deals one after another)
+🎮 **عروض Steam اليوم**  ← embed title, dark blue sidebar
+```
+(same description format)
+```
+
+- Header is embed title with platform emoji: `✨ عروض Epic Games اليوم` / `🎮 عروض Steam اليوم`
+- Per deal inside embed description: `• **{title}** {desc} {price_line}` — single line, no inner breaks
+- Join between deals inside description: `\n` (no blank lines between deals)
 - Free-to-keep (original == -1): `price_line` = `متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.`
 - Paid on sale (original > 0, sale == 0): `price_line` = `تم تنزيل السعر من {orig}$ إلى مجاناً وينتهي هذا العرض {ends_str}.`
 - Paid on sale (original > 0, sale > 0): `price_line` = `تم تنزيل السعر من {orig}$ إلى {sale}$ وينتهي هذا العرض {ends_str}.`

@@ -5,8 +5,9 @@ A single-bot system that fetches **live game deals** from Epic Games and Steam e
 ## Features
 
 - **Epic Games** — Fetches free-game promotions & discounts via the `freeGamesPromotions` GraphQL endpoint
-- **Steam** — Fetches live specials via the `featuredcategories` API (`specials` array)
+- **Steam** — Fetches live specials via the `featuredcategories` API with enforced US currency (`cc=US&l=english`)
 - **AI Descriptions** — Per-game, one-sentence Arabic description generated asynchronously by Groq's `llama-3.3-70b-versatile` model
+- **Colored Embeds** — Platform-specific sidebar colors: Bright Green for Epic, Steam Blue for Steam
 - **Autonomous** — Runs on a 24-hour `tasks.loop`; fires immediately on startup, then every 24 hours
 - **No database, no slash commands** — Zero configuration beyond 3 environment variables
 
@@ -16,7 +17,7 @@ The bot runs as a single `discord.Client` (not `commands.Bot`). On `on_ready`, a
 
 1. **Parallel fetch** — Epic Games and Steam APIs are called concurrently via `asyncio.gather` with `return_exceptions=True`
 2. **AI enrichment** — Each deal title is passed to Groq for a concise Arabic description; a fallback sentence is used if the API fails
-3. **Format & post** — Deals are assembled into a pure-Markdown message (no embeds) and sent to the target channel, split at Discord's 2000-character limit
+3. **Format & post** — Deals are assembled into `discord.Embed` objects with colored sidebars and sent to the target channel, split at Discord's 4096-character description limit
 
 ## Quick Start
 
@@ -37,10 +38,10 @@ Copy `.env.example` to `.env` and fill in your values.
 
 ## Output Format
 
-Messages follow this exact structure — each deal is a single continuous line:
+Messages are sent as `discord.Embed` with colored sidebars per platform. Inside the embed description, each deal follows this exact single-line format:
 
 ```
-✨ **عروض Epic Games اليوم**
+✨ **عروض Epic Games اليوم**  ← Bright Green sidebar
 
 • **Phonopolis** لعبة رائعة من الاستوديو "ستيموفاركس" تعيد إحياء الذكريات الصوتية. تم تنزيل السعر من 35.98$ إلى 20.38$ وينتهي هذا العرض يوم 6 يونيو.
 • **Suicide Squad: Kill the Justice League** لعبة بطل خارق من استوديو روكستيد. تم تنزيل السعر من 69.99$ إلى 3.49$ وينتهي هذا العرض يوم 1 يونيو.

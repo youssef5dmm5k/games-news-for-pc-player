@@ -13,9 +13,9 @@ logger = logging.getLogger("game_deals_bot.client")
 
 EPIC_URL = (
     "https://store-site-backend-static.ak.epicgames.com/"
-    "freeGamesPromotions?locale=en-US&country=US"
+    "freeGamesPromotions?locale=en-US&country=US&allowCountries=US"
 )
-STEAM_URL = "https://store.steampowered.com/api/featuredcategories/?l=english"
+STEAM_URL = "https://store.steampowered.com/api/featuredcategories/?cc=US&l=english"
 FALLBACK_DESC = "\u0644\u0639\u0628\u0629 \u0645\u063a\u0627\u0645\u0631\u0627\u062a \u0648\u062a\u062d\u062f\u064a \u0645\u0645\u064a\u0632\u0629 \u0644\u0623\u062c\u0647\u0632\u0629 \u0627\u0644\u0643\u0645\u0628\u064a\u0648\u062a\u0631."
 TIMEOUT = 15
 
@@ -26,6 +26,11 @@ ARABIC_MONTHS = {
     7: "\u064a\u0648\u0644\u064a\u0648", 8: "\u0623\u063a\u0633\u0637\u0633",
     9: "\u0633\u0628\u062a\u0645\u0628\u0631", 10: "\u0623\u0643\u062a\u0648\u0628\u0631",
     11: "\u0646\u0648\u0641\u0645\u0628\u0631", 12: "\u062f\u064a\u0633\u0645\u0628\u0631",
+}
+
+STORE_CONFIG = {
+    "Epic Games": {"color": 0x00df6d, "emoji": "\u2728"},
+    "Steam": {"color": 0x1b2838, "emoji": "\U0001F3AE"},
 }
 
 
@@ -160,9 +165,9 @@ class GameDealsBot(discord.Client):
                     {
                         "role": "system",
                         "content": (
-                            "Write a brief, single-sentence catchy description "
+                            "Write a brief, single-sentence catchy description/premise "
                             "in natural Arabic for the game title provided. "
-                            "Do not mention any prices, discounts, or dates. "
+                            "Do not mention any prices, percentages, store names, or dates. "
                             "Output only the pure Arabic sentence."
                         ),
                     },
@@ -180,8 +185,10 @@ class GameDealsBot(discord.Client):
             return FALLBACK_DESC
 
     async def _post_deals(self, channel, store: str, deals: list[dict]) -> None:
-        lines = [f"\u2728 **\u0639\u0631\u0648\u0636 {store} \u0627\u0644\u064a\u0648\u0645**"]
+        cfg = STORE_CONFIG[store]
+        title = f"{cfg['emoji']} \u0639\u0631\u0648\u0636 {store} \u0627\u0644\u064a\u0648\u0645"
 
+        deal_lines = []
         for d in deals:
             desc = await self._get_desc(d["title"])
             ends_str = f"\u064a\u0648\u0645 {d['ends']}" if d["ends"] else "\u0642\u0631\u064a\u0628\u0627\u064b"
@@ -192,28 +199,27 @@ class GameDealsBot(discord.Client):
                 sale_str = "\u0645\u062c\u0627\u0646\u0627\u064b" if d["sale"] == 0 else f"{d['sale']:.2f}$"
                 price_line = f"\u062a\u0645 \u062a\u0646\u0632\u064a\u0644 \u0627\u0644\u0633\u0639\u0631 \u0645\u0646 {d['original']:.2f}$ \u0625\u0644\u0649 {sale_str} \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
 
-            lines.append(f"\u2022 **{d['title']}** {desc} {price_line}")
+            deal_lines.append(f"\u2022 **{d['title']}** {desc} {price_line}")
 
-        full = lines[0] + "\n\n" + "\n".join(lines[1:])
-        if len(full) <= 2000:
-            await channel.send(full)
-            return
-
-        header = lines[0]
-        await channel.send(header)
         chunk = []
         size = 0
-        for line in lines[1:]:
-            l = len(line)
-            if size + l > 1900:
-                await channel.send("\n".join(chunk))
+        for line in deal_lines:
+            if not chunk:
                 chunk = [line]
-                size = l
-            else:
+                size = len(line)
+            elif size + 1 + len(line) <= 4096:
                 chunk.append(line)
-                size += l
+                size += 1 + len(line)
+            else:
+                await channel.send(
+                    embed=discord.Embed(title=title, color=cfg["color"], description="\n".join(chunk))
+                )
+                chunk = [line]
+                size = len(line)
         if chunk:
-            await channel.send("\n".join(chunk))
+            await channel.send(
+                embed=discord.Embed(title=title, color=cfg["color"], description="\n".join(chunk))
+            )
 
     @daily_deals.before_loop
     async def before_daily_deals(self) -> None:
