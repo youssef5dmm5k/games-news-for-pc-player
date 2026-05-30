@@ -41,17 +41,18 @@
 ```
 ✨ **عروض Epic Games اليوم**
 
-• Game Title 1
-لعبة الرعب والمغامرات من استوديو رايان سوفتوير. تم تنزيل السعر من 69.99$ إلى مجاناً وينتهي هذا العرض يوم 6 يونيو.
+🎮 Game Title 1
+لعبة الرعب والمغامرات من استوديو رايان سوفتوير. 💸 تم تنزيل السعر من ~~69.99$~~ إلى **مجاناً** وينتهي هذا العرض يوم 6 يونيو.
 
-• Game Title 2
-لعبة بطل خارق من استوديو روكستيد. تم تنزيل السعر من 69.99$ إلى 3.49$ وينتهي هذا العرض يوم 1 يونيو.
+🎮 Game Title 2
+لعبة بطل خارق من استوديو روكستيد. 💸 تم تنزيل السعر من ~~69.99$~~ إلى **3.49$** وينتهي هذا العرض يوم 1 يونيو.
 ```
 
 - Header: `✨ **عروض {store} اليوم**` followed by blank line
-- Per deal block: `• {title}\n{desc} {price_line}`
+- Per deal block: `🎮 {title}\n{desc} {price_line}`
 - `{desc}` ends with period (from AI) + space + `{price_line}` (ends with period) — all on one line
 - Blank line (`\n\n`) between each block
-- Free-to-keep (original == -1): `price_line` = `متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.`
-- Paid on sale (original > 0, sale == 0): `sale_str` = `مجاناً`
-- Paid on sale (original > 0, sale > 0): `sale_str` = `{sale:.2f}$`
+- Free-to-keep (original == -1): `price_line` = `🎁 متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.`
+- Paid on sale (original > 0, sale == 0): `price_line` = `💸 تم تنزيل السعر من ~~{orig}$~~ إلى **مجاناً** وينتهي هذا العرض {ends_str}.`
+- Paid on sale (original > 0, sale > 0): `price_line` = `💸 تم تنزيل السعر من ~~{orig}$~~ إلى **{sale}$** وينتهي هذا العرض {ends_str}.`
+- Original price has strikethrough markdown (`~~`), sale price has bold (`**`)

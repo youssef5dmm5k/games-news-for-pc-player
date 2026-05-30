@@ -188,12 +188,12 @@ class GameDealsBot(discord.Client):
             ends_str = f"\u064a\u0648\u0645 {d['ends']}" if d["ends"] else "\u0642\u0631\u064a\u0628\u0627\u064b"
 
             if d["original"] == -1:
-                price_line = f"\u0645\u062a\u0648\u0641\u0631\u0629 \u0645\u062c\u0627\u0646\u0627\u064b \u0627\u0644\u0622\u0646 \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
+                price_line = f"\U0001F381 \u0645\u062a\u0648\u0641\u0631\u0629 \u0645\u062c\u0627\u0646\u0627\u064b \u0627\u0644\u0622\u0646 \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
             else:
                 sale_str = "\u0645\u062c\u0627\u0646\u0627\u064b" if d["sale"] == 0 else f"{d['sale']:.2f}$"
-                price_line = f"\u062a\u0645 \u062a\u0646\u0632\u064a\u0644 \u0627\u0644\u0633\u0639\u0631 \u0645\u0646 {d['original']:.2f}$ \u0625\u0644\u0649 {sale_str} \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
+                price_line = f"\U0001F4B8 \u062a\u0645 \u062a\u0646\u0632\u064a\u0644 \u0627\u0644\u0633\u0639\u0631 \u0645\u0646 ~~{d['original']:.2f}$~~ \u0625\u0644\u0649 **{sale_str}** \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
 
-            lines.append(f"\u2022 {d['title']}\n{desc} {price_line}")
+            lines.append(f"\U0001F3AE {d['title']}\n{desc} {price_line}")
 
         full = "\n\n".join(lines)
         if len(full) <= 2000:
