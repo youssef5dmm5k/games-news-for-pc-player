@@ -41,6 +41,5 @@
 - **Channel IDs** — stored as strings in `.env`, cast to `int` by `config.py`
 - **First run (Bot 1)**: `@tasks.loop` fires immediately on `on_ready`, not after 24h
 - **First run (Bot 2)**: slash commands need `applications.commands` scope in invite URL
-- **`Bot 2 token`**: `BOT_TOKEN_2` is required even if only testing Bot 1 — set to any valid token or the same as Bot 1 for testing
+- **Bot 2 token**: If `BOT_TOKEN_2` is missing or placeholder, Bot 2 is skipped gracefully (no crash)
 - **CheapShark pagination**: API default is 60 results; bot passes `pageSize=15`
-- **`config.json`**: If present, ignore/delete it
