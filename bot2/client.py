@@ -9,17 +9,23 @@ from bot2.gift_cards import search_items, get_cheapest_store
 
 logger = logging.getLogger("bot2.compare")
 
+BUY_BUTTON_ID = "bot2:buy_best_deal"
+
 
 class PriceCompareBot(commands.Bot):
     """Bot 2 — Interactive gift-card / game price comparator via /compare."""
 
     def __init__(self, settings: Settings) -> None:
-        intents = discord.Intents.all()
+        intents = discord.Intents.default()
         super().__init__(command_prefix=None, intents=intents)
         self.settings = settings
         self._channel_id = settings.channel_id_2
 
     # ── lifecycle ──────────────────────────────────────────────
+
+    async def setup_hook(self) -> None:
+        self.tree.add_command(compare_command, bot=self)
+        self.add_view(BuyBestDealView())
 
     async def on_ready(self) -> None:
         print(f"[Bot2] ONLINE — {self.user} (ID: {self.user.id})", flush=True)
@@ -31,11 +37,6 @@ class PriceCompareBot(commands.Bot):
         except Exception as exc:
             print(f"[Bot2] Failed to sync command tree: {exc}", flush=True)
             logger.warning("Failed to sync command tree: %s", exc)
-
-    # ── /compare ───────────────────────────────────────────────
-
-    async def setup_hook(self) -> None:
-        self.tree.add_command(compare_command, bot=self)
 
 
 # ── slash command implementation ────────────────────────────────
@@ -49,11 +50,20 @@ async def compare_command(
     interaction: discord.Interaction,
     query: str,
 ) -> None:
+    bot: PriceCompareBot = interaction.client
+
+    if interaction.channel_id != bot._channel_id:
+        await interaction.response.send_message(
+            f"⚠️ This command can only be used in the designated pricing channel.",
+            ephemeral=True,
+        )
+        return
+
     results = search_items(query)
 
     if not results:
         embed = discord.Embed(
-            title="🔍 No Results",
+            title="No Results",
             description=f"No items found matching **{query}**.",
             color=0xE74C3C,
         )
@@ -106,23 +116,32 @@ async def compare_command(
 # ── interactive button ─────────────────────────────────────────
 
 class BuyBestDealView(discord.ui.View):
-    """View with a single button that reveals the cheapest store link."""
+    """Persistent view with a single button that reveals the cheapest store link."""
 
-    def __init__(self, item: dict) -> None:
-        super().__init__(timeout=180)
+    def __init__(self, item: dict | None = None) -> None:
+        super().__init__(timeout=None)
         self._item = item
 
     @discord.ui.button(
         label="Buy Best Deal",
         style=discord.ButtonStyle.success,
         emoji="🛒",
+        custom_id=BUY_BUTTON_ID,
     )
     async def buy_best(
         self,
         interaction: discord.Interaction,
         _button: discord.ui.Button,
     ) -> None:
-        cheapest = get_cheapest_store(self._item)
+        item = self._item
+        if item is None:
+            await interaction.response.send_message(
+                "This session has expired. Please run `/compare` again.",
+                ephemeral=True,
+            )
+            return
+
+        cheapest = get_cheapest_store(item)
         if cheapest is None:
             await interaction.response.send_message(
                 "No stores available for this item.",
@@ -131,7 +150,7 @@ class BuyBestDealView(discord.ui.View):
             return
 
         embed = discord.Embed(
-            title=f"🛒 Best Deal — {self._item['name']}",
+            title=f"Best Deal — {item['name']}",
             description=(
                 f"**Store:** [{cheapest['name']}]({cheapest['url']})\n"
                 f"**Price:** ${cheapest['price']:.2f}"
