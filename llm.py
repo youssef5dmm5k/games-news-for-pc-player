@@ -10,6 +10,7 @@ async def ask_groq(
     system_prompt: str,
     user_prompt: str,
     model: str = "llama-3.1-8b-instant",
+    max_tokens: int = 100,
 ) -> str:
     client = AsyncGroq(api_key=api_key)
     try:
@@ -19,7 +20,7 @@ async def ask_groq(
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            max_tokens=100,
+            max_tokens=max_tokens,
             temperature=0.7,
         )
         return response.choices[0].message.content.strip()
