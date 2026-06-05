@@ -1,60 +1,40 @@
 # NexusGaming Tracker
 
 ## Architecture
-- `main.py` — standalone script with everything in one file
-- Single `discord.Client` (NOT `commands.Bot`) — no slash commands, no `tree.sync()`, no `setup_hook`
-- `@tasks.loop(hours=24)` fires **immediately** on `on_ready`, then every 24h
-- 3 env vars: `DISCORD_TOKEN`, `CHANNEL_ID_1`, `GROQ_API_KEY`
-- Inline `AsyncGroq` in `main.py` (not a separate module) — named `main.py` to avoid `groq` pip package shadowing
+- `main.py` — standalone script, everything in one file
+- `commands.Bot` (NOT `discord.Client`) — but no slash commands used, only `@tasks.loop`
+- `@tasks.loop(hours=24)` starts inside `on_ready()` via `if not loop.is_running()` — no `before_loop` / `wait_until_ready()`
+- 3 env vars from `os.getenv()`: `DISCORD_TOKEN`, `CHANNEL_ID_1` (int), `GROQ_API_KEY`
+- **No `load_dotenv()`** — Railway sets env natively; run locally with `$env:DISCORD_TOKEN="..."` or `set DISCORD_TOKEN=...`
+- Inline `AsyncGroq` at module level (not inside a class)
+- Deploy: `worker: python main.py` via Procfile
 
-## Data fetching
-- Epic Games: `freeGamesPromotions` → `data.Catalog.searchStore.elements[]`
-- Steam: `featuredcategories?cc=US` → `specials.items[]` — enforced US currency, no `endDate` from API, hardcoded to `now + 7 days`
-- Prices in cents → `_cents_to_dollars()`
-- Filter: skips `origPrice == discPrice` **unless** active `promotionalOffers` exist (free-to-keep promos)
-- Both API calls via `asyncio.gather` with `return_exceptions=True`
-- `_free` flag = `orig == 0 and disc == 0` → uses "متوفرة مجاناً الآن" text; distinct from `sale == 0` which uses "مجاناً"
+## Data fetching (sequential, not parallel)
+- **Epic**: `freeGamesPromotions?locale=en-US&country=US&allowCountries=US` → `data.Catalog.searchStore.elements[]`
+  - Price: Epic returns in cents or dollars inconsistently; code divides by 100 only when `> 100`
+  - Expiry: `promotionalOffers[0].promotionalOffers[0].endDate`, falls back to `upcomingPromotionalOffers`
+- **Steam**: `featuredcategories/?cc=US&l=english` → `specials.items[]`
+  - Price: ALWAYS cents, always divide by 100.0
+  - Expiry: `discount_expiration` (unix timestamp); if absent → `"غير محدد"`
+- **No error handling** around HTTP calls — if an API fails, the entire loop crashes
+
+## Groq AI
+- Model: literally `"llama3"` (not versioned like `llama-3.3-70b-versatile`)
+- **No `max_tokens` or `temperature`** — uses Groq defaults
+- System prompt: "Write a brief, single-sentence catchy premise/description in natural Arabic for the game title provided. Do not mention any prices, store names, discounts, or dates. Output only the pure Arabic sentence."
+- Fallback on failure: `"لعبة مغامرات وتحدي مميزة لأجهزة الكمبيوتر."`
 
 ## Output format
-- Discord embed with colored sidebar per platform:
-  - Epic Games: `0x00df6d` (bright green), title: `✨ عروض Epic Games اليوم`
-  - Steam: `0x1b2838` (dark blue), title: `🎮 عروض Steam اليوم`
-- Per deal inside embed description: `• **{title}** {desc} {price_line}` (single line, no inner breaks)
-- Price lines:
-  - `original == -1` → `متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.`
-  - `original > 0, sale == 0` → `تم تنزيل السعر من {orig}$ إلى مجاناً وينتهي هذا العرض {ends_str}.`
-  - `original > 0, sale > 0` → `تم تنزيل السعر من {orig}$ إلى {sale}$ وينتهي هذا العرض {ends_str}.`
-- Prices: `39.99$` (`:.2f$`), sale == 0 → `مجاناً`
-- Arabic dates via `_format_ar_date()` → `ARABIC_MONTHS` dict
-- Embeds auto-split at 4096-char Discord limit (multiple embeds sent if needed)
+- `discord.Embed` per platform:
+  - Epic: green sidebar `0x00df6d`, title `✨ عروض Epic Games اليوم`
+  - Steam: dark blue sidebar `0x1b2838`, title `🎮 عروض Steam اليوم`
+- Inside embed description: `• **{TITLE}** {ai_desc}. تم تنزيل السعر من {orig_price}$ إلى {disc_price}$ وينتهي هذا العرض يوم {date}.`
+- **Known bug** (line 174, 187): when `discount_price` is `"مجاناً"`, the hardcoded `$` produces `مجاناً$` — fix would be `{game['discount_price']}` without the trailing `$`
+- Dates: ISO format `YYYY-MM-DD`, NOT Arabic months
+- `.upper()` applied to all game titles
+- No embed splitting at 4096 chars — all deals in one embed
 
 ## Gotchas
-- **`aiohttp`**: not in `requirements.txt`, available as transitive dep of `discord.py` — do not add it manually
-- **First loop**: fires on `on_ready` (not after 24h), uses `before_loop` with `wait_until_ready`
-- **No tests, no lint, no CI** in this repo
-- **`load_dotenv()`**: runs at entrypoint for local `.env` support (main.py:204)
-- **Groq model**: `llama-3.3-70b-versatile` in `main.py:158`, `max_tokens=60` in `_get_desc`
-- **Groq import**: `from groq import AsyncGroq` in `main.py:10`
-- **Steam API**: uses `cc=US&l=english` for correct USD pricing (divide by 100.0)
-
-## Bot form — exact message layout
-
-```
-✨ **عروض Epic Games اليوم**  ← embed title, green sidebar
-
-• **Phonopolis** لعبة رائعة من الاستوديو "ستيموفاركس" تعيد إحياء الذكريات الصوتية. تم تنزيل السعر من 35.98$ إلى 20.38$ وينتهي هذا العرض يوم 6 يونيو.
-• **Suicide Squad: Kill the Justice League** لعبة بطل خارق من استوديو روكستيد. تم تنزيل السعر من 69.99$ إلى 3.49$ وينتهي هذا العرض يوم 1 يونيو.
-```
-
-🎮 **عروض Steam اليوم**  ← embed title, dark blue sidebar
-```
-(same description format)
-```
-
-- Header is embed title with platform emoji: `✨ عروض Epic Games اليوم` / `🎮 عروض Steam اليوم`
-- Per deal inside embed description: `• **{title}** {desc} {price_line}` — single line, no inner breaks
-- Join between deals inside description: `\n` (no blank lines between deals)
-- Free-to-keep (original == -1): `price_line` = `متوفرة مجاناً الآن وينتهي هذا العرض {ends_str}.`
-- Paid on sale (original > 0, sale == 0): `price_line` = `تم تنزيل السعر من {orig}$ إلى مجاناً وينتهي هذا العرض {ends_str}.`
-- Paid on sale (original > 0, sale > 0): `price_line` = `تم تنزيل السعر من {orig}$ إلى {sale}$ وينتهي هذا العرض {ends_str}.`
-- No emoji decorations on price lines, no strikethrough, no bold on prices
+- **Duplicate imports**: `os`, `asyncio`, `aiohttp`, `discord` each imported twice (lines 1–4 and 5–8) — harmless but ugly
+- **No CI, no tests, no lint**
+- **No `aiohttp.ClientSession` context manager error handling** — no try/except around `session.get()`
