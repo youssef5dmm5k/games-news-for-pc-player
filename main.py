@@ -1,241 +1,170 @@
 import os
 import asyncio
-import logging
-from datetime import datetime, timezone, timedelta
-from dotenv import load_dotenv
-
 import aiohttp
 import discord
 from discord.ext import tasks
 from groq import AsyncGroq
+from datetime import datetime
 
-logger = logging.getLogger("game_deals_bot.client")
+# 1. Environment Variables & Setup
+TOKEN = os.getenv('DISCORD_TOKEN')
+CHANNEL_ID_1 = int(os.getenv('CHANNEL_ID_1'))
+GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 
-EPIC_URL = (
-    "https://store-site-backend-static.ak.epicgames.com/"
-    "freeGamesPromotions?locale=en-US&country=US&allowCountries=US"
-)
-STEAM_URL = "https://store.steampowered.com/api/featuredcategories/?cc=US&l=english"
-FALLBACK_DESC = "\u0644\u0639\u0628\u0629 \u0645\u063a\u0627\u0645\u0631\u0627\u062a \u0648\u062a\u062d\u062f\u064a \u0645\u0645\u064a\u0632\u0629 \u0644\u0623\u062c\u0647\u0632\u0629 \u0627\u0644\u0643\u0645\u0628\u064a\u0648\u062a\u0631."
-TIMEOUT = 15
+intents = discord.Intents.all()
+bot = discord.Client(intents=intents)
+groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 
-ARABIC_MONTHS = {
-    1: "\u064a\u0646\u0627\u064a\u0631", 2: "\u0641\u0628\u0631\u0627\u064a\u0631",
-    3: "\u0645\u0627\u0631\u0633", 4: "\u0623\u0628\u0631\u064a\u0644",
-    5: "\u0645\u0627\u064a\u0648", 6: "\u064a\u0648\u0646\u064a\u0648",
-    7: "\u064a\u0648\u0644\u064a\u0648", 8: "\u0623\u063a\u0633\u0637\u0633",
-    9: "\u0633\u0628\u062a\u0645\u0628\u0631", 10: "\u0623\u0643\u062a\u0648\u0628\u0631",
-    11: "\u0646\u0648\u0641\u0645\u0628\u0631", 12: "\u062f\u064a\u0633\u0645\u0628\u0631",
-}
-
-STORE_CONFIG = {
-    "Epic Games": {"color": 0x00df6d, "emoji": "\u2728"},
-    "Steam": {"color": 0x1b2838, "emoji": "\U0001F3AE"},
-}
-
-
-def _cents_to_dollars(cents: int) -> float:
-    return round(cents / 100, 2)
-
-
-def _format_ar_date(iso_str: str) -> str:
+# 5. Isolated Groq AI Instruction
+async def get_groq_description(title: str) -> str:
+    system_prompt = "Write a brief, single-sentence catchy premise/description in natural Arabic for the game title provided. Do not mention any prices, store names, discounts, or dates. Output only the pure Arabic sentence."
     try:
-        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
-        return f"{dt.day} {ARABIC_MONTHS[dt.month]}"
-    except Exception:
-        return iso_str
-
-
-class GameDealsBot(discord.Client):
-    def __init__(self) -> None:
-        super().__init__(intents=discord.Intents.all())
-        self.channel_id = int(os.getenv("CHANNEL_ID_1", "0"))
-        self.groq_key = os.getenv("GROQ_API_KEY", "")
-
-    async def on_ready(self) -> None:
-        print(f"[+] ONLINE \u2014 {self.user}", flush=True)
-        self.daily_deals.start()
-
-    @tasks.loop(hours=24)
-    async def daily_deals(self) -> None:
-        channel = self.get_channel(self.channel_id)
-        if channel is None:
-            logger.error("Channel %s not found", self.channel_id)
-            return
-
-        epic, steam = await asyncio.gather(
-            self._fetch_epic(), self._fetch_steam(), return_exceptions=True
+        chat_completion = await groq_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": title}
+            ],
+            model="llama3-8b-8192"
         )
+        # Clean up the AI response to guarantee NO inner line breaks
+        ai_text = chat_completion.choices[0].message.content.strip().replace('\n', ' ')
+        return ai_text
+    except Exception as e:
+        print(f"Groq API failed for {title}: {e}")
+        return "لعبة مغامرات وتحدي مميزة لأجهزة الكمبيوتر."
 
-        if isinstance(epic, Exception):
-            logger.error("Epic fetch error: %s", epic)
-            epic = []
-        if isinstance(steam, Exception):
-            logger.error("Steam fetch error: %s", steam)
-            steam = []
-
-        for store, deals in [("Epic Games", epic), ("Steam", steam)]:
-            if deals:
-                await self._post_deals(channel, store, deals)
-            else:
-                logger.warning("No %s deals fetched \u2014 skipping", store)
-
-    async def _fetch_epic(self) -> list[dict]:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(EPIC_URL, timeout=TIMEOUT) as resp:
-                if resp.status != 200:
-                    return []
-                data = await resp.json()
-
-        elements = (
-            data.get("data", {})
-            .get("Catalog", {})
-            .get("searchStore", {})
-            .get("elements", [])
-        )
-
-        deals = []
-        for el in elements:
-            price_info = el.get("price") or {}
-            total = price_info.get("totalPrice") or {}
-            orig = total.get("originalPrice", 0)
-            disc = total.get("discountPrice", 0)
-            promo = el.get("promotions")
-            has_active_promo = bool(promo and promo.get("promotionalOffers"))
-
-            if orig == disc and not has_active_promo:
-                continue
-
-            end_date = None
-            if promo:
-                for bundle in promo.get("promotionalOffers", []):
-                    for offer in bundle.get("promotionalOffers", []):
-                        if offer.get("endDate"):
-                            end_date = offer["endDate"]
-
-            if orig == 0 and disc == 0:
-                deals.append({
-                    "title": el.get("title", "Unknown"),
-                    "original": -1,
-                    "sale": 0.0,
-                    "ends": _format_ar_date(end_date) if end_date else None,
-                })
-            else:
-                deals.append({
-                    "title": el.get("title", "Unknown"),
-                    "original": _cents_to_dollars(orig),
-                    "sale": _cents_to_dollars(disc),
-                    "ends": _format_ar_date(end_date) if end_date else None,
-                })
-        return deals
-
-    async def _fetch_steam(self) -> list[dict]:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(STEAM_URL, timeout=TIMEOUT) as resp:
-                if resp.status != 200:
-                    return []
-                data = await resp.json()
-
-        items = data.get("specials", {}).get("items", [])
-        default_end = datetime.now(timezone.utc) + timedelta(days=7)
-
-        deals = []
-        for item in items:
-            name = item.get("name")
-            if not name:
-                continue
-            orig_c = item.get("original_price", 0)
-            final_c = item.get("final_price", 0)
-            if orig_c == 0 or orig_c == final_c:
-                continue
-            deals.append({
-                "title": name,
-                "original": _cents_to_dollars(orig_c),
-                "sale": _cents_to_dollars(final_c),
-                "ends": _format_ar_date(default_end.isoformat()),
-            })
-        return deals
-
-    async def _get_desc(self, title: str) -> str:
+# 4. Bulletproof & Accurate Fetching Engines
+async def fetch_epic_games() -> list:
+    url = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=en-US&country=US&allowCountries=US"
+    async with aiohttp.ClientSession() as session:
         try:
-            client = AsyncGroq(api_key=self.groq_key)
-            response = await client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "Write a brief, single-sentence catchy description/premise "
-                            "in natural Arabic for the game title provided. "
-                            "Do not mention any prices, percentages, store names, or dates. "
-                            "Output only the pure Arabic sentence."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": title,
-                    },
-                ],
-                max_tokens=60,
-                temperature=0.7,
-            )
-            result = response.choices[0].message.content.strip()
-            return result if result else FALLBACK_DESC
-        except Exception:
-            return FALLBACK_DESC
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    games = data.get('data', {}).get('Catalog', {}).get('searchStore', {}).get('elements', [])
+                    epic_games = []
+                    
+                    for game in games:
+                        title = game.get('title', 'Unknown')
+                        price_info = game.get('price', {}).get('totalPrice', {})
+                        original_price = price_info.get('originalPrice', 0) / 100.0
+                        discount_price_cents = price_info.get('discountPrice', 0)
+                        
+                        promotions = game.get('promotions', {})
+                        promotional_offers = promotions.get('promotionalOffers', [])
+                        
+                        expiry_date = "N/A"
+                        if promotional_offers:
+                            for offer_group in promotional_offers:
+                                for offer in offer_group.get('promotionalOffers', []):
+                                    end_date = offer.get('endDate')
+                                    if end_date:
+                                        expiry_date = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y-%m-%d")
+                                        break
+                        
+                        if discount_price_cents == 0:
+                            new_price_str = "مجاناً"
+                        else:
+                            new_price_str = f"{discount_price_cents / 100.0:.2f}$"
+                            
+                        epic_games.append({
+                            'title': title,
+                            'original_price': f"{original_price:.2f}$",
+                            'new_price': new_price_str,
+                            'expiry_date': expiry_date
+                        })
+                    return epic_games
+                else:
+                    print(f"Epic Games fetch failed with status: {response.status}")
+        except Exception as e:
+            print(f"Exception fetching Epic Games: {e}")
+    return []
 
-    async def _post_deals(self, channel, store: str, deals: list[dict]) -> None:
-        cfg = STORE_CONFIG[store]
-        title = f"{cfg['emoji']} \u0639\u0631\u0648\u0636 {store} \u0627\u0644\u064a\u0648\u0645"
+async def fetch_steam_games() -> list:
+    url = "https://store.steampowered.com/api/featuredcategories/?cc=US&l=english"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+    }
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.get(url, headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    specials = data.get('specials', {})
+                    items = specials.get('items', [])
+                    steam_games = []
+                    
+                    for item in items:
+                        title = item.get('name', 'Unknown')
+                        original_price = item.get('original_price', 0) / 100.0
+                        final_price = item.get('final_price', 0) / 100.0
+                        
+                        steam_games.append({
+                            'title': title,
+                            'original_price': f"{original_price:.2f}$",
+                            'new_price': f"{final_price:.2f}$",
+                            'expiry_date': "N/A"
+                        })
+                    return steam_games
+                else:
+                    print(f"Steam fetch failed with status: {response.status}")
+        except Exception as e:
+            print(f"Exception fetching Steam games: {e}")
+    return []
 
-        deal_lines = []
-        for d in deals:
-            desc = await self._get_desc(d["title"])
-            ends_str = f"\u064a\u0648\u0645 {d['ends']}" if d["ends"] else "\u0642\u0631\u064a\u0628\u0627\u064b"
+# 6. Output Requirement (Background Loop)
+@tasks.loop(hours=24)
+async def daily_deals():
+    channel = bot.get_channel(CHANNEL_ID_1)
+    if not channel:
+        print(f"Channel {CHANNEL_ID_1} not found.")
+        return
+        
+    epic_games = await fetch_epic_games()
+    steam_games = await fetch_steam_games()
+    
+    # 2. Premium Visual Style (Embed with Left Sidebar) & 3. Exact Description Form
+    epic_desc = ""
+    if epic_games:
+        for game in epic_games:
+            ai_desc = await get_groq_description(game['title'])
+            # Continuous, single-line bulleted text block
+            epic_desc += f"• **{game['title'].upper()}** {ai_desc}. تم تنزيل السعر من {game['original_price']} إلى {game['new_price']} وينتهي هذا العرض يوم {game['expiry_date']}.\n"
+    else:
+        epic_desc = "لا توجد عروض متاحة حالياً."
+        
+    epic_embed = discord.Embed(
+        title="✨ عروض Epic Games اليوم",
+        description=epic_desc,
+        color=0x00df6d
+    )
+    await channel.send(embed=epic_embed)
+    
+    steam_desc = ""
+    if steam_games:
+        for game in steam_games:
+            ai_desc = await get_groq_description(game['title'])
+            # Continuous, single-line bulleted text block
+            steam_desc += f"• **{game['title'].upper()}** {ai_desc}. تم تنزيل السعر من {game['original_price']} إلى {game['new_price']} وينتهي هذا العرض يوم {game['expiry_date']}.\n"
+    else:
+        steam_desc = "لا توجد عروض متاحة حالياً."
+        
+    steam_embed = discord.Embed(
+        title="🎮 عروض Steam اليوم",
+        description=steam_desc,
+        color=0x1b2838
+    )
+    await channel.send(embed=steam_embed)
 
-            if d["original"] == -1:
-                price_line = f"\u0645\u062a\u0648\u0641\u0631\u0629 \u0645\u062c\u0627\u0646\u0627\u064b \u0627\u0644\u0622\u0646 \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
-            else:
-                sale_str = "\u0645\u062c\u0627\u0646\u0627\u064b" if d["sale"] == 0 else f"{d['sale']:.2f}$"
-                price_line = f"\u062a\u0645 \u062a\u0646\u0632\u064a\u0644 \u0627\u0644\u0633\u0639\u0631 \u0645\u0646 {d['original']:.2f}$ \u0625\u0644\u0649 {sale_str} \u0648\u064a\u0646\u062a\u0647\u064a \u0647\u0630\u0627 \u0627\u0644\u0639\u0631\u0636 {ends_str}."
+@daily_deals.before_loop
+async def before_daily_deals():
+    await bot.wait_until_ready()
 
-            deal_lines.append(f"\u2022 **{d['title']}** {desc} {price_line}")
-
-        chunk = []
-        size = 0
-        for line in deal_lines:
-            if not chunk:
-                chunk = [line]
-                size = len(line)
-            elif size + 1 + len(line) <= 4096:
-                chunk.append(line)
-                size += 1 + len(line)
-            else:
-                await channel.send(
-                    embed=discord.Embed(title=title, color=cfg["color"], description="\n".join(chunk))
-                )
-                chunk = [line]
-                size = len(line)
-        if chunk:
-            await channel.send(
-                embed=discord.Embed(title=title, color=cfg["color"], description="\n".join(chunk))
-            )
-
-    @daily_deals.before_loop
-    async def before_daily_deals(self) -> None:
-        await self.wait_until_ready()
-
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user} (ID: {bot.user.id})')
+    if not daily_deals.is_running():
+        daily_deals.start()
 
 if __name__ == "__main__":
-    load_dotenv()
-    token = os.getenv("DISCORD_TOKEN")
-    if not token:
-        raise SystemExit("DISCORD_TOKEN is not set")
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="[%(asctime)s] [%(levelname)-7s] %(name)s: %(message)s",
-    )
-
-    bot = GameDealsBot()
-    bot.run(token)
+    bot.run(TOKEN)
