@@ -15,9 +15,9 @@ intents = discord.Intents.all()
 bot = discord.Client(intents=intents)
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 
-# 5. Isolated Groq AI Instruction
+# 5. Isolated Groq AI Instruction - Fixed to prevent title repetition
 async def get_groq_description(title: str) -> str:
-    system_prompt = "Write a brief, single-sentence catchy premise/description in natural Arabic for the game title provided. Do not mention any prices, store names, discounts, or dates. Output only the pure Arabic sentence."
+    system_prompt = "Write a brief, single-sentence catchy premise/description in natural Arabic for the game title provided. Do not mention any prices, store names, discounts, or dates. Do not repeat the game title in the description. Start directly with the description. Output only the pure Arabic sentence."
     try:
         chat_completion = await groq_client.chat.completions.create(
             messages=[
@@ -26,8 +26,19 @@ async def get_groq_description(title: str) -> str:
             ],
             model="llama3-8b-8192"
         )
-        # Clean up the AI response to guarantee NO inner line breaks
         ai_text = chat_completion.choices[0].message.content.strip().replace('\n', ' ')
+        
+        # Remove title if it appears at the beginning to prevent duplication
+        title_lower = title.lower()
+        ai_text_lower = ai_text.lower()
+        if ai_text_lower.startswith(title_lower):
+            ai_text = ai_text[len(title):].strip()
+            if ai_text.startswith(('،', ',', '-', '—', ':', 'هو', 'هي', 'لعبة')):
+                # Keep it if it's a natural continuation
+                pass
+            else:
+                ai_text = ai_text.lstrip('.,: ')
+        
         return ai_text
     except Exception as e:
         print(f"Groq API failed for {title}: {e}")
@@ -35,89 +46,95 @@ async def get_groq_description(title: str) -> str:
 
 # 4. Bulletproof & Accurate Fetching Engines
 async def fetch_epic_games() -> list:
-    url = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=en-US&country=US&allowCountries=US"
+    url = "https://store.epicgames.com/graphql"
+    query = """
+    query searchStoreQuery($count: Int, $country: String!, $withPrice: Boolean = true) {
+      Catalog {
+        searchStore(
+          count: $count
+          country: $country
+          onSale: true
+          sortBy: "releaseDate"
+          sortDir: "DESC"
+        ) {
+          elements {
+            title
+            promotions {
+              promotionalOffers {
+                promotionalOffers {
+                  discountSetting {
+                    discountPercentage
+                  }
+                  endDate
+                }
+              }
+            }
+            price(country: $country) @include(if: $withPrice) {
+              totalPrice {
+                discountPrice
+                originalPrice
+                fmtPrice(locale: "en-US") {
+                  originalPrice
+                  discountPrice
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    variables = {"count": 7, "country": "US", "withPrice": True}
+    headers = {"Content-Type": "application/json"}
+    
     async with aiohttp.ClientSession() as session:
         try:
-            async with session.get(url) as response:
+            async with session.post(url, json={"query": query, "variables": variables}, headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
-                    games = data.get('data', {}).get('Catalog', {}).get('searchStore', {}).get('elements', [])
+                    elements = data.get('data', {}).get('Catalog', {}).get('searchStore', {}).get('elements', [])
                     epic_games = []
                     
-                    for game in games:
-                        promotions = game.get('promotions')
-                        if not promotions:
-                            continue
-                            
-                        promo_offers = promotions.get('promotionalOffers', [])
-                        is_free = False
-                        expiry_date = "N/A"
+                    for game in elements:
+                        title = game.get('title', 'Unknown')
+                        price_data = game.get('price', {}).get('totalPrice', {})
+                        fmt_price = price_data.get('fmtPrice', {})
                         
-                        # Filter for games that are actually 100% free
+                        original_price_str = fmt_price.get('originalPrice', '0').replace('$', '').strip()
+                        discount_price_str = fmt_price.get('discountPrice', '0').replace('$', '').strip()
+                        
+                        promotions = game.get('promotions', {})
+                        promo_offers = promotions.get('promotionalOffers', [])
+                        
+                        expiry_date = "N/A"
                         if promo_offers:
                             for offer_group in promo_offers:
                                 for offer in offer_group.get('promotionalOffers', []):
-                                    if offer.get('discountSetting', {}).get('discountPercentage', 100) == 0:
-                                        is_free = True
-                                        end_date = offer.get('endDate')
-                                        if end_date:
+                                    end_date = offer.get('endDate')
+                                    if end_date:
+                                        try:
                                             expiry_date = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%Y-%m-%d")
+                                        except:
+                                            try:
+                                                expiry_date = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d")
+                                            except:
+                                                expiry_date = "N/A"
                                         break
                         
-                        if not is_free:
-                            continue
+                        if discount_price_str == '0' or discount_price_str == '0.00':
+                            new_price = "مجاناً"
+                        else:
+                            new_price = f"{discount_price_str}$"
                             
-                        title = game.get('title', 'Unknown')
-                        namespace = game.get('namespace')
-                        
-                        # Fetch REAL original price using Epic Games GraphQL API
-                        original_price_str = "0"
-                        if namespace:
-                            gql_url = "https://store.epicgames.com/graphql"
-                            query = """
-                            query searchStoreQuery($namespace: String, $country: String!, $withPrice: Boolean = true) {
-                              Catalog {
-                                searchStore(
-                                  namespace: $namespace
-                                  country: $country
-                                  count: 1
-                                ) {
-                                  elements {
-                                    price(country: $country) @include(if: $withPrice) {
-                                      totalPrice {
-                                        fmtPrice(locale: "en-US") {
-                                          originalPrice
-                                          discountPrice
-                                        }
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                            """
-                            variables = {"namespace": namespace, "country": "US", "withPrice": True}
-                            headers = {"Content-Type": "application/json"}
-                            
-                            try:
-                                async with session.post(gql_url, json={"query": query, "variables": variables}, headers=headers) as gql_res:
-                                    if gql_res.status == 200:
-                                        gql_data = await gql_res.json()
-                                        elements = gql_data.get('data', {}).get('Catalog', {}).get('searchStore', {}).get('elements', [])
-                                        if elements:
-                                            fmt_price = elements[0].get('price', {}).get('totalPrice', {}).get('fmtPrice', {})
-                                            # Strip the '$' sign to match the exact output format required
-                                            original_price_str = fmt_price.get('originalPrice', '0').replace('$', '')
-                            except Exception as e:
-                                print(f"GraphQL fetch failed for {title}: {e}")
-                                
                         epic_games.append({
                             'title': title,
-                            'original_price': original_price_str,
-                            'new_price': "مجاناً",
+                            'original_price': f"{original_price_str}$",
+                            'new_price': new_price,
                             'expiry_date': expiry_date
                         })
                     return epic_games
+                else:
+                    print(f"Epic Games GraphQL fetch failed with status: {response.status}")
         except Exception as e:
             print(f"Exception fetching Epic Games: {e}")
     return []
@@ -136,16 +153,15 @@ async def fetch_steam_games() -> list:
                     items = specials.get('items', [])
                     steam_games = []
                     
-                    for item in items:
+                    for item in items[:7]:
                         title = item.get('name', 'Unknown')
-                        # Strict Pricing Fix: Divide by 100.0 to convert cents to USD decimals
                         original_price = item.get('original_price', 0) / 100.0
                         final_price = item.get('final_price', 0) / 100.0
                         
                         steam_games.append({
                             'title': title,
-                            'original_price': f"{original_price:.2f}",
-                            'new_price': f"{final_price:.2f}",
+                            'original_price': f"{original_price:.2f}$",
+                            'new_price': f"{final_price:.2f}$",
                             'expiry_date': "N/A"
                         })
                     return steam_games
@@ -171,8 +187,7 @@ async def daily_deals():
     if epic_games:
         for game in epic_games:
             ai_desc = await get_groq_description(game['title'])
-            # Continuous, single-line bulleted text block matching exact Arabic syntax
-            epic_desc += f"• **{game['title'].upper()}** {ai_desc}. تم تنزيل السعر من {game['original_price']}$ إلى {game['new_price']}$ وينتهي هذا العرض يوم {game['expiry_date']}.\n"
+            epic_desc += f"• **{game['title'].upper()}** {ai_desc}. تم تنزيل السعر من {game['original_price']} إلى {game['new_price']} وينتهي هذا العرض يوم {game['expiry_date']}.\n"
     else:
         epic_desc = "لا توجد عروض متاحة حالياً."
         
@@ -187,8 +202,7 @@ async def daily_deals():
     if steam_games:
         for game in steam_games:
             ai_desc = await get_groq_description(game['title'])
-            # Continuous, single-line bulleted text block matching exact Arabic syntax
-            steam_desc += f"• **{game['title'].upper()}** {ai_desc}. تم تنزيل السعر من {game['original_price']}$ إلى {game['new_price']}$ وينتهي هذا العرض يوم {game['expiry_date']}.\n"
+            steam_desc += f"• **{game['title'].upper()}** {ai_desc}. تم تنزيل السعر من {game['original_price']} إلى {game['new_price']} وينتهي هذا العرض يوم {game['expiry_date']}.\n"
     else:
         steam_desc = "لا توجد عروض متاحة حالياً."
         
